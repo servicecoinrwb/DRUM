@@ -20,6 +20,10 @@ canvas{display:block}
 .chip{background:rgba(8,22,31,.72);border:1px solid rgba(233,227,211,.22);padding:5px 11px;font-size:.78rem;letter-spacing:.02em}
 .chip b{font-weight:600}
 .chip.dim{color:#8fa6ba}
+.chip.back{pointer-events:auto;text-decoration:none;color:#ffb347;border-color:rgba(255,179,71,.5);font-weight:600;letter-spacing:.06em}
+.chip.back:hover{background:rgba(255,179,71,.12)}
+.card .back-link{display:inline-block;margin-left:12px;font-size:.84rem;color:#a9bdcb}
+.card .back-link:hover{color:#e9e3d3}
 .chip.obj{display:inline-flex;align-items:center;gap:8px;color:#ffb347;border-color:rgba(255,179,71,.5)}
 .chip.obj i{display:inline-block;font-style:normal;font-size:1rem;line-height:1;transform:rotate(-90deg);transition:transform .12s linear}
 .chip.wallet{pointer-events:auto;cursor:pointer;font:inherit;font-size:.78rem;color:#ffb347;border-color:rgba(255,179,71,.5)}
@@ -84,6 +88,7 @@ button.go:focus-visible{outline:2px solid #e9e3d3;outline-offset:3px}
 <div id="app"></div>
 <div id="hud">
   <div class="row">
+    <a class="chip back" href="index.html" title="Back to drumtoken.com">‹ DRUM</a>
     <span class="chip">Drums <b id="hud-drums">0</b> / 6</span>
     <span class="chip hull">Hull <span id="hud-hull"></span></span>
     <span class="chip heat">Gun <span><i id="hud-heat"></i></span></span>
@@ -376,7 +381,7 @@ function spawnWorld(){
   function field(lo,hi,n){for(var k=0;k<n;k++){var p=take(function(q){return offLane(q)&&q[0]>=lo&&q[0]<=hi;});if(!p)return;var m=makeMine(cx(p[0])+(Math.random()-0.5)*2.2,cz(p[1])+(Math.random()-0.5)*2.2);scene.add(m);mines.push({mesh:m,live:true,phase:Math.random()*6.28});}}
   field(5,10,5);field(15,21,5);
   for(i=0;i<3;i++){var p4=take(function(q){return q[0]>=15&&q[0]<=22;});if(!p4)break;spawnCraftAt(p4[0],p4[1]);}
-  [[12,5],[13,9]].forEach(function(bp){var b=makeBattery(cx(bp[0]),cz(bp[1]));scene.add(b.mesh);batteries.push({mesh:b.mesh,mount:b.mount,hp:4,dead:false,cool:2+Math.random()*2});});
+  [[12,5],[13,9]].forEach(function(bp){var b=makeBattery(cx(bp[0]),cz(bp[1]));scene.add(b.mesh);batteries.push({mesh:b.mesh,mount:b.mount,hp:4,dead:false,cool:0.6+Math.random()*1});});
 }
 
 // ================= state =================
@@ -408,12 +413,12 @@ var veil=document.getElementById("veil"),card=document.getElementById("card");
 function showCard(h){card.innerHTML=h;veil.classList.remove("hide");}
 function hideCard(){veil.classList.add("hide");}
 function brief(){S.phase="brief";
-  showCard('<h1>Hormuz Run</h1><p class="lead">Run a loaded tanker east through the Strait of Hormuz, load six drums, turn at the eastern gate — then bring her all the way back.</p><p>Mines through the whole channel, thickest at the narrows, but there is always a line through. Shore batteries shell you as you pass; the red ring is where the round lands. Attack craft make passes and get replaced when you sink them. Jets strafe anything in open water. Every drum aboard makes her slower and harder to turn, so the run home is the hard half.</p><p class="keys"><kbd>W</kbd><kbd>S</kbd> throttle &nbsp; <kbd>A</kbd><kbd>D</kbd> helm &nbsp; <kbd>Space</kbd> fire &nbsp; <kbd>E</kbd> smoke &nbsp; <kbd>M</kbd> sound<br>Smoke breaks any craft off its run at you. Three charges. The white drum patches a compartment. The gun locks onto craft and batteries first, then mines ahead of you — with nothing locked it fires straight over the bow. Shoot a mine and it goes up; close ones chain.</p><button class="go" id="btn-go">Begin the run</button>');
+  showCard('<h1>Hormuz Run</h1><p class="lead">Run a loaded tanker east through the Strait of Hormuz, load six drums, turn at the eastern gate — then bring her all the way back.</p><p>Mines through the whole channel, thickest at the narrows, but there is always a line through. Shore batteries shell you as you pass; the red ring is where the round lands. Attack craft make passes and get replaced when you sink them. Jets strafe anything in open water. Every drum aboard makes her slower and harder to turn, so the run home is the hard half.</p><p class="keys"><kbd>W</kbd><kbd>S</kbd> throttle &nbsp; <kbd>A</kbd><kbd>D</kbd> helm &nbsp; <kbd>Space</kbd> fire &nbsp; <kbd>E</kbd> smoke &nbsp; <kbd>M</kbd> sound<br>Smoke breaks any craft off its run at you. Three charges. The white drum patches a compartment. The gun locks onto craft and batteries first, then mines ahead of you — with nothing locked it fires straight over the bow. Shoot a mine and it goes up; close ones chain.</p><button class="go" id="btn-go">Begin the run</button><a class="back-link" href="index.html">Back to drumtoken.com</a>');
   document.getElementById("btn-go").addEventListener("click",function(){audioInit();hideCard();resetRun();});}
 function over(win,why){S.phase="over";engineUpdate(0);
   var time=Math.round(S.t),timeBonus=win?Math.max(0,900-time*3):0,hullBonus=win?S.hull*300:0,total=S.score+timeBonus+hullBonus;
   var result={initials:"",wallet:W.addr||"",score:total,drums:S.drums,kills:S.kills,mines:minesCleared,batteries:S.batsKilled,repairs:S.repairs||0,time:time,hull:S.hull,won:win,nonce:Date.now()};
-  showCard('<h2>'+(win?"Home with the cargo":"Run ended")+'</h2><p class="lead">'+why+'</p><div class="score">'+total+'</div><table><tr><td>Drums loaded</td><td>'+S.drums+' × 100</td></tr><tr><td>Attack craft sunk</td><td>'+S.kills+' × 250</td></tr><tr><td>Mines cleared</td><td>'+minesCleared+' × 50</td></tr><tr><td>Batteries silenced</td><td>'+S.batsKilled+' × 400</td></tr>'+(S.repairs?'<tr><td>Repair float</td><td>+150</td></tr>':'')+(S.leg===2?'<tr><td>Turned at the gate</td><td>+300</td></tr>':'')+(win?'<tr><td>Time ('+time+'s)</td><td>+'+timeBonus+'</td></tr><tr><td>Hull intact</td><td>+'+hullBonus+'</td></tr>':'')+'</table><div id="post"></div><div class="board" id="board"></div><button class="go" id="btn-go">Run it again</button>');
+  showCard('<h2>'+(win?"Home with the cargo":"Run ended")+'</h2><p class="lead">'+why+'</p><div class="score">'+total+'</div><table><tr><td>Drums loaded</td><td>'+S.drums+' × 100</td></tr><tr><td>Attack craft sunk</td><td>'+S.kills+' × 250</td></tr><tr><td>Mines cleared</td><td>'+minesCleared+' × 50</td></tr><tr><td>Batteries silenced</td><td>'+S.batsKilled+' × 400</td></tr>'+(S.repairs?'<tr><td>Repair float</td><td>+150</td></tr>':'')+(S.leg===2?'<tr><td>Turned at the gate</td><td>+300</td></tr>':'')+(win?'<tr><td>Time ('+time+'s)</td><td>+'+timeBonus+'</td></tr><tr><td>Hull intact</td><td>+'+hullBonus+'</td></tr>':'')+'</table><div id="post"></div><div class="board" id="board"></div><button class="go" id="btn-go">Run it again</button><a class="back-link" href="index.html">Back to drumtoken.com</a>');
   document.getElementById("btn-go").addEventListener("click",function(){audioInit();hideCard();resetRun();});
   renderPost(result); loadBoard(null);}
 
@@ -567,16 +572,20 @@ function step(dt){
   for(i=0;i<batteries.length;i++){var bt2=batteries[i];if(bt2.dead)continue;
     var bdx=ship.position.x-bt2.mesh.position.x,bdz=ship.position.z-bt2.mesh.position.z,bdist=Math.sqrt(bdx*bdx+bdz*bdz);
     bt2.mount.rotation.y+=(Math.atan2(bdx,bdz)-bt2.mount.rotation.y)*Math.min(1,dt*2.5);bt2.cool-=dt;
-    if(bdist<44&&bt2.cool<=0&&S.t>6){bt2.cool=(3.6+Math.random()*1.2)*(S.leg===2?0.78:1);
-      var lead=1.7,tx=ship.position.x+fx*S.speed*lead+(Math.random()-0.5)*5,tz=ship.position.z+fz*S.speed*lead+(Math.random()-0.5)*5;
-      var mk=new THREE.Mesh(markerGeo,markerMat.clone());mk.rotation.x=-Math.PI/2;mk.position.set(tx,0.5,tz);scene.add(mk);
-      var round=new THREE.Mesh(arcGeo,arcMat);scene.add(round);
-      arcs.push({mesh:round,marker:mk,x0:bt2.mesh.position.x,z0:bt2.mesh.position.z,y0:bt2.mesh.position.y+2.5,tx:tx,tz:tz,t:0,dur:1.7});
-      boom(bt2.mesh.position.x+Math.sin(bt2.mount.rotation.y)*3,bt2.mesh.position.z+Math.cos(bt2.mount.rotation.y)*3,1.8,0xffffff);sfx.whistle(1.7);
-      if(bdist>30){guide("<b>Battery has you.</b> The red ring is where it lands — be somewhere else in two seconds.",true);sfx.alarm();}}}
-  for(i=arcs.length-1;i>=0;i--){var ar=arcs[i];ar.t+=dt;var u=Math.min(1,ar.t/ar.dur);
+    if(bdist<60&&bt2.cool<=0&&S.t>5){bt2.cool=(2.4+Math.random()*0.9)*(S.leg===2?0.8:1);
+      // bracket: one round leading you, one on where you are right now
+      var lead=1.3,shots=[[ship.position.x+fx*S.speed*lead,ship.position.z+fz*S.speed*lead],[ship.position.x,ship.position.z]];
+      for(var si=0;si<2;si++){
+        var tx=shots[si][0]+(Math.random()-0.5)*3,tz=shots[si][1]+(Math.random()-0.5)*3;
+        var mk=new THREE.Mesh(markerGeo,markerMat.clone());mk.rotation.x=-Math.PI/2;mk.position.set(tx,0.5,tz);scene.add(mk);
+        var round=new THREE.Mesh(arcGeo,arcMat);scene.add(round);
+        arcs.push({mesh:round,marker:mk,x0:bt2.mesh.position.x,z0:bt2.mesh.position.z,y0:bt2.mesh.position.y+2.5,tx:tx,tz:tz,t:-si*0.18,dur:1.3});
+      }
+      boom(bt2.mesh.position.x+Math.sin(bt2.mount.rotation.y)*3,bt2.mesh.position.z+Math.cos(bt2.mount.rotation.y)*3,1.8,0xffffff);sfx.whistle(1.3);
+      if(!bt2.warned){bt2.warned=true;guide("<b>Battery has you.</b> Two rounds a salvo — one ahead of you, one on you. Change speed <i>and</i> heading.",true);sfx.alarm();}}}
+  for(i=arcs.length-1;i>=0;i--){var ar=arcs[i];ar.t+=dt;if(ar.t<0){ar.mesh.visible=false;continue;}ar.mesh.visible=true;var u=Math.min(1,ar.t/ar.dur);
     ar.mesh.position.set(ar.x0+(ar.tx-ar.x0)*u,ar.y0+(1-Math.pow(2*u-1,2))*22*(1-u*0.3),ar.z0+(ar.tz-ar.z0)*u);ar.marker.material.opacity=0.35+0.45*Math.abs(Math.sin(ar.t*9));
-    if(u>=1){boom(ar.tx,ar.tz,7);var ddx=ar.tx-ship.position.x,ddz=ar.tz-ship.position.z;if(ddx*ddx+ddz*ddz<4.6*4.6)hit("Shore battery hit.");scene.remove(ar.mesh);scene.remove(ar.marker);arcs.splice(i,1);if(S.phase!=="run")return;}}
+    if(u>=1){boom(ar.tx,ar.tz,7);var ddx=ar.tx-ship.position.x,ddz=ar.tz-ship.position.z;if(ddx*ddx+ddz*ddz<5.4*5.4)hit("Shore battery hit.");scene.remove(ar.mesh);scene.remove(ar.marker);arcs.splice(i,1);if(S.phase!=="run")return;}}
 
   // jets
   strafeClock-=dt;
