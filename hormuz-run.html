@@ -388,7 +388,7 @@ function effMax(){return MAXSPD*(1-0.028*S.drums);}
 function effTurn(){return TURN*(1-0.03*S.drums);}
 
 function resetRun(){
-  S.leg=1;S.drums=0;S.hull=5;S.speed=0;S.invuln=0;S.t=0;S.score=0;S.kills=0;S.batsKilled=0;S.heat=0;S.jammed=false;S.fireCool=0;S.reinforce=0;S.smokeCharges=3;S.smokeUntil=0;chain=[];minesCleared=0;
+  S.leg=1;S.drums=0;S.hull=5;S.speed=0;S.invuln=0;S.t=0;S.score=0;S.kills=0;S.batsKilled=0;S.repairs=0;S.heat=0;S.jammed=false;S.fireCool=0;S.reinforce=0;S.smokeCharges=3;S.smokeUntil=0;chain=[];minesCleared=0;
   setGate(gateEastMat,false);setGate(gateWestMat,false);
   spawnWorld();strafeClock=16;
   ship.position.set(WEST_X,0,cz(lane["row"+1]));ship.rotation.y=Math.PI/2;
@@ -412,8 +412,8 @@ function brief(){S.phase="brief";
   document.getElementById("btn-go").addEventListener("click",function(){audioInit();hideCard();resetRun();});}
 function over(win,why){S.phase="over";engineUpdate(0);
   var time=Math.round(S.t),timeBonus=win?Math.max(0,900-time*3):0,hullBonus=win?S.hull*300:0,total=S.score+timeBonus+hullBonus;
-  var result={initials:"",wallet:W.addr||"",score:total,drums:S.drums,kills:S.kills,mines:minesCleared,batteries:S.batsKilled,time:time,hull:S.hull,won:win,nonce:Date.now()};
-  showCard('<h2>'+(win?"Home with the cargo":"Run ended")+'</h2><p class="lead">'+why+'</p><div class="score">'+total+'</div><table><tr><td>Drums loaded</td><td>'+S.drums+' × 100</td></tr><tr><td>Attack craft sunk</td><td>'+S.kills+' × 250</td></tr><tr><td>Mines cleared</td><td>'+minesCleared+' × 50</td></tr><tr><td>Batteries silenced</td><td>'+S.batsKilled+' × 400</td></tr>'+(S.leg===2?'<tr><td>Turned at the gate</td><td>+300</td></tr>':'')+(win?'<tr><td>Time ('+time+'s)</td><td>+'+timeBonus+'</td></tr><tr><td>Hull intact</td><td>+'+hullBonus+'</td></tr>':'')+'</table><div id="post"></div><div class="board" id="board"></div><button class="go" id="btn-go">Run it again</button>');
+  var result={initials:"",wallet:W.addr||"",score:total,drums:S.drums,kills:S.kills,mines:minesCleared,batteries:S.batsKilled,repairs:S.repairs||0,time:time,hull:S.hull,won:win,nonce:Date.now()};
+  showCard('<h2>'+(win?"Home with the cargo":"Run ended")+'</h2><p class="lead">'+why+'</p><div class="score">'+total+'</div><table><tr><td>Drums loaded</td><td>'+S.drums+' × 100</td></tr><tr><td>Attack craft sunk</td><td>'+S.kills+' × 250</td></tr><tr><td>Mines cleared</td><td>'+minesCleared+' × 50</td></tr><tr><td>Batteries silenced</td><td>'+S.batsKilled+' × 400</td></tr>'+(S.repairs?'<tr><td>Repair float</td><td>+150</td></tr>':'')+(S.leg===2?'<tr><td>Turned at the gate</td><td>+300</td></tr>':'')+(win?'<tr><td>Time ('+time+'s)</td><td>+'+timeBonus+'</td></tr><tr><td>Hull intact</td><td>+'+hullBonus+'</td></tr>':'')+'</table><div id="post"></div><div class="board" id="board"></div><button class="go" id="btn-go">Run it again</button>');
   document.getElementById("btn-go").addEventListener("click",function(){audioInit();hideCard();resetRun();});
   renderPost(result); loadBoard(null);}
 
@@ -533,7 +533,7 @@ function step(dt){
       else if(S.drums>DRUMS_NEEDED)guide("Extra drum. She is heavier now — top speed down "+Math.round(S.drums*2.8)+"%, helm slower to match.");
       else guide("Drum aboard. <b>"+(DRUMS_NEEDED-S.drums)+" more</b> and the gate opens.");}}
   for(i=0;i<repairs.length;i++){var rp=repairs[i];if(rp.taken)continue;rp.mesh.position.y=0.9+Math.sin(S.t*2+rp.phase)*0.18;rp.mesh.rotation.x+=dt*0.8;
-    if(rp.mesh.position.distanceTo(ship.position)<DRUM_R){rp.taken=true;scene.remove(rp.mesh);addScore(150);sfx.repair();
+    if(rp.mesh.position.distanceTo(ship.position)<DRUM_R){rp.taken=true;scene.remove(rp.mesh);S.repairs++;addScore(150);sfx.repair();
       if(S.hull<5){S.hull++;syncHud();guide("<b>Compartment patched.</b> "+S.hull+" of five holding.");}else guide("Repair float aboard — hull was already sound, so that is points only.");}}
   for(i=0;i<mines.length;i++){var mn=mines[i];if(!mn.live)continue;mn.mesh.position.y=0.7+Math.sin(S.t*1.4+mn.phase)*0.14;mn.mesh.rotation.y+=dt*0.3;
     if(mn.mesh.position.distanceTo(ship.position)<MINE_R){mn.live=false;scene.remove(mn.mesh);boom(mn.mesh.position.x,mn.mesh.position.z,9);hit("Mine on the hull.");if(S.phase!=="run")return;}}
