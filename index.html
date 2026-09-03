@@ -170,13 +170,13 @@ footer a{color:var(--paper-dim)}
 "use strict";
 // ================= config — fill these in after deploy =================
 var CONFIG={
-  DRUM_ADDRESS:"0x0000000000000000000000000000000000000000",
+  DRUM_ADDRESS:"0xBc28AC01d058931A1F4E0f5C936fcFB5c7C60721",
   EXPLORER:"https://robinhoodchain.blockscout.com",
   LP_BURN_TX:"",          // tx hash of the LP position going to 0x…dEaD
   DEPLOYER_BAG:"",        // e.g. "10,000,000 DRUM (1.0%) across 0x6943…66E3"
   CHART_URL:"",           // DEX chart link once the pool exists
   SUPABASE_URL:"https://uazkrxhgxiasqamgzemp.supabase.co",
-  SUPABASE_ANON:"YOUR-ANON-KEY"
+  SUPABASE_ANON:"sb_publishable_hU1llqqIocD7yFs17yWvoA_uI4pw1Ru"
 };
 var TOKEN_LIVE=!/^0x0{40}$/i.test(CONFIG.DRUM_ADDRESS);
 var BOARD_LIVE=!/YOUR-PROJECT/.test(CONFIG.SUPABASE_URL)&&!/YOUR-ANON-KEY/.test(CONFIG.SUPABASE_ANON);
