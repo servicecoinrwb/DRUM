@@ -106,12 +106,12 @@ var CONFIG={
   CHAIN_ID:4663, CHAIN_HEX:"0x1237", CHAIN_NAME:"Robinhood Chain",
   RPC:"https://rpc.mainnet.chain.robinhood.com",
   EXPLORER:"https://robinhoodchain.blockscout.com",
-  SUPABASE_URL:"https://YOUR-PROJECT.supabase.co",
+  SUPABASE_URL:"https://uazkrxhgxiasqamgzemp.supabase.co",
   SUPABASE_ANON:"YOUR-ANON-KEY",
-  SCORE_FN:"/functions/v1/submit-score"
+  SCORE_FN:"/functions/v1/smooth-processor"
 };
 var TOKEN_LIVE=!/^0x0{40}$/i.test(CONFIG.DRUM_ADDRESS);
-var BOARD_LIVE=!/YOUR-PROJECT/.test(CONFIG.SUPABASE_URL);
+var BOARD_LIVE=!/YOUR-PROJECT/.test(CONFIG.SUPABASE_URL)&&!/YOUR-ANON-KEY/.test(CONFIG.SUPABASE_ANON);
 
 // ================= wallet =================
 var W={addr:null,bal:null,pollTimer:null};
