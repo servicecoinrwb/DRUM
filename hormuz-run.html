@@ -4,7 +4,11 @@
 <meta charset="utf-8">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Crect width=%2764%27 height=%2764%27 rx=%2712%27 fill=%27%2312495b%27/%3E%3Crect x=%2714%27 y=%2712%27 width=%2736%27 height=%2740%27 rx=%276%27 fill=%27%23e0952a%27/%3E%3Crect x=%2714%27 y=%2722%27 width=%2736%27 height=%274%27 fill=%27%232b2b2b%27/%3E%3Crect x=%2714%27 y=%2738%27 width=%2736%27 height=%274%27 fill=%27%232b2b2b%27/%3E%3C/svg%3E">
 <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
-<title>Hormuz Run</title>
+<title>Hormuz Run — DRUM</title>
+<link rel="canonical" href="https://drumtoken.com/hormuz-run.html">
+<meta property="og:title" content="Hormuz Run — DRUM">
+<meta property="og:description" content="Run a tanker through the Strait of Hormuz. Six drums, one gun, get home.">
+<meta property="og:url" content="https://drumtoken.com/hormuz-run.html">
 <style>
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;padding:0;height:100%;overflow:hidden;background:#08161f}
@@ -28,9 +32,14 @@ canvas{display:block}
 .board ol{margin:0;padding:0;list-style:none;font-size:.82rem}
 .board li{display:flex;gap:10px;padding:3px 0;border-bottom:1px solid rgba(233,227,211,.08)}
 .board li span:first-child{width:22px;color:#8fa6ba}
-.board li span:nth-child(2){flex:1;font-family:ui-monospace,Menlo,monospace;font-size:.78rem}
+
 .board li.me{color:#ffb347}
 .board .empty{font-size:.8rem;color:#8fa6ba}
+.board li .ini{font-family:ui-monospace,Menlo,monospace;font-size:1rem;letter-spacing:.14em;width:52px;flex:none}
+.board li .sub{flex:1;color:#8fa6ba;font-size:.76rem}
+.ini-row{display:flex;gap:10px;align-items:center;margin-top:8px}
+.ini-input{width:96px;font:inherit;font-family:ui-monospace,Menlo,monospace;font-size:1.4rem;letter-spacing:.22em;text-align:center;text-transform:uppercase;background:rgba(8,22,31,.8);color:#ffb347;border:1px solid rgba(255,179,71,.5);padding:6px 4px}
+.ini-input:focus{outline:2px solid #ffb347;outline-offset:2px}
 .hull{display:flex;gap:4px;align-items:center}
 .hull i{width:16px;height:7px;background:#c21e7a;display:block}
 .hull i.gone{background:rgba(233,227,211,.18)}
@@ -83,7 +92,7 @@ button.go:focus-visible{outline:2px solid #e9e3d3;outline-offset:3px}
     <span class="chip">Score <b id="hud-score">0</b></span>
     <span class="chip obj" id="hud-leg"><i id="hud-arrow">➤</i><span id="hud-obj">Outbound</span></span>
     <span class="chip dim" id="hud-snd">Sound on · M</span>
-    <button class="chip wallet" id="hud-wallet" type="button" title="Connect to post scores under your address. Not required to play.">Connect wallet</button>
+    <button class="chip wallet" id="hud-wallet" type="button" title="Optional. Shows your DRUM balance and attaches your address to board entries.">Connect wallet</button>
   </div>
   <div id="guide">Standing by.</div>
 </div>
@@ -122,7 +131,7 @@ function shortAddr(a){return a.slice(0,6)+"…"+a.slice(-4);}
 function fmtDrum(n){if(n>=1e9)return (n/1e9).toFixed(2)+"B";if(n>=1e6)return (n/1e6).toFixed(2)+"M";if(n>=1e3)return (n/1e3).toFixed(1)+"K";return n.toFixed(0);}
 function syncWallet(){
   var b=document.getElementById("hud-wallet");
-  if(!W.addr){b.textContent="Connect wallet";b.title="Connect to post your score under your address. Not required to play.";return;}
+  if(!W.addr){b.textContent="Connect wallet";b.title="Optional. Shows your DRUM balance and attaches your address to board entries.";return;}
   var s=shortAddr(W.addr);
   if(!TOKEN_LIVE){b.textContent=s+" · DRUM not deployed yet";b.title="The token contract address has not been set in this build.";}
   else if(W.bal===null){b.textContent=s+" · reading DRUM…";b.title="";}
@@ -152,116 +161,71 @@ async function connectWallet(){
     if(eth.on&&!W.bound){W.bound=true;eth.on("accountsChanged",function(a){W.addr=a[0]||null;W.bal=null;syncWallet();refreshBalance().then(syncWallet);});eth.on("chainChanged",function(){W.bal=null;syncWallet();refreshBalance().then(syncWallet);});}
     syncWallet(); await refreshBalance(); syncWallet();
     if(W.pollTimer)clearInterval(W.pollTimer); W.pollTimer=setInterval(function(){refreshBalance().then(syncWallet);},30000);
-    if(S.phase==="run")guide("Wallet connected as "+shortAddr(W.addr)+". Your score posts under that address when the run ends.");
+    if(S.phase==="run")guide("Wallet connected as "+shortAddr(W.addr)+". Your address will ride along with your board entry.");
   }catch(e){guide("<b>Wallet connection cancelled or failed.</b> You can still play; connect again any time from the top bar.",true);}
 }
 document.getElementById("hud-wallet").addEventListener("click",connectWallet);
 window.addEventListener("keydown",function(e){if(e.key===" "&&document.activeElement===document.getElementById("hud-wallet"))document.activeElement.blur();});
 
-// ================= scores =================
-function buildMessage(p){
-  return "Hormuz Run score\nwallet: "+p.wallet+"\nscore: "+p.score+"\ndrums: "+p.drums+"\nkills: "+p.kills+"\nmines: "+p.mines+"\nbatteries: "+p.batteries+"\ntime: "+p.time+"\nhull: "+p.hull+"\nwon: "+p.won+"\nnonce: "+p.nonce;
-}
+// ================= scores — pinball style =================
+var lastInitials="";
 async function postScore(p,status){
-  p.wallet=W.addr;
-  var msg=buildMessage(p);
-  if(status)status("Waiting for your signature in the wallet…");
-  var sig=await window.ethereum.request({method:"personal_sign",params:[msg,W.addr]});
-  if(status)status("Signed. Sending to the leaderboard…");
-  var ctl=new AbortController(),timer=setTimeout(function(){ctl.abort();},15000);
+  p.wallet=W.addr||"";
+  if(status)status("Sending to the board…");
+  var ctl=new AbortController(),timer=setTimeout(function(){ctl.abort();},25000);
   var r;
   try{
-    r=await fetch(CONFIG.SUPABASE_URL+CONFIG.SCORE_FN,{method:"POST",signal:ctl.signal,headers:{"Content-Type":"application/json","apikey":CONFIG.SUPABASE_ANON,"Authorization":"Bearer "+CONFIG.SUPABASE_ANON},body:JSON.stringify({message:msg,signature:sig})});
+    r=await fetch(CONFIG.SUPABASE_URL+CONFIG.SCORE_FN,{method:"POST",signal:ctl.signal,headers:{"Content-Type":"application/json","apikey":CONFIG.SUPABASE_ANON,"Authorization":"Bearer "+CONFIG.SUPABASE_ANON},body:JSON.stringify(p)});
   }catch(e){
     clearTimeout(timer);
-    if(e&&e.name==="AbortError")throw new Error("The score function did not answer within 15 seconds.");
+    if(e&&e.name==="AbortError")throw new Error("The score function did not answer within 25 seconds.");
     throw new Error("Could not reach the score function (network or CORS). Check the function is deployed with JWT verification off.");
   }
   clearTimeout(timer);
-  if(status)status("Function answered — reading the result…");
   var j=null; try{j=await r.json();}catch(e){}
   if(!r.ok)throw new Error((j&&j.error)||("HTTP "+r.status));
   if(!j||j.ok!==true)throw new Error("The score function answered but did not confirm a save — check that index.ts is deployed to smooth-processor, not the default template.");
   return j;
 }
 async function fetchBoard(){
-  var r=await fetch(CONFIG.SUPABASE_URL+"/rest/v1/drum_leaderboard?select=wallet,score,drums,kills,time_s,won&order=score.desc&limit=10",{headers:{apikey:CONFIG.SUPABASE_ANON,Authorization:"Bearer "+CONFIG.SUPABASE_ANON}});
+  var r=await fetch(CONFIG.SUPABASE_URL+"/rest/v1/drum_scores?select=initials,score,drums,time_s,won&order=score.desc,created_at.asc&limit=10",{headers:{apikey:CONFIG.SUPABASE_ANON,Authorization:"Bearer "+CONFIG.SUPABASE_ANON}});
   if(!r.ok)throw new Error("HTTP "+r.status);
   return r.json();
 }
-function renderBoard(rows,me){
+function renderBoard(rows,mine){
   var el=document.getElementById("board"); if(!el)return;
-  if(!rows||!rows.length){el.innerHTML='<h3>Leaderboard</h3><p class="empty">No scores posted yet. Yours would be the first.</p>';return;}
-  el.innerHTML='<h3>Leaderboard · best run per wallet</h3><ol>'+rows.map(function(r,i){return '<li class="'+(me&&r.wallet.toLowerCase()===me.toLowerCase()?"me":"")+'"><span>'+(i+1)+'</span><span>'+shortAddr(r.wallet)+'</span><span>'+r.score+'</span></li>';}).join("")+'</ol>';
+  if(!rows||!rows.length){el.innerHTML='<h3>High scores</h3><p class="empty">No scores on the board yet. Yours would be the first.</p>';return;}
+  el.innerHTML='<h3>High scores</h3><ol>'+rows.map(function(r,i){return '<li class="'+(mine&&r.initials===mine.initials&&r.score===mine.score?"me":"")+'"><span>'+(i+1)+'</span><span class="ini">'+r.initials+'</span><span class="sub">'+r.drums+' drums · '+r.time_s+'s'+(r.won?" · home":"")+'</span><span>'+r.score+'</span></li>';}).join("")+'</ol>';
 }
-function loadBoard(){
+function loadBoard(mine){
   var el=document.getElementById("board"); if(!el)return;
-  if(!BOARD_LIVE){el.innerHTML='<h3>Leaderboard</h3><p class="empty">Not wired up in this build yet — the Supabase project is not set in the config block.</p>';return;}
-  el.innerHTML='<h3>Leaderboard</h3><p class="empty">Loading…</p>';
-  fetchBoard().then(function(rows){renderBoard(rows,W.addr);}).catch(function(){el.innerHTML='<h3>Leaderboard</h3><p class="empty">Could not reach the leaderboard. It will show next time it loads.</p>';});
+  if(!BOARD_LIVE){el.innerHTML='<h3>High scores</h3><p class="empty">Not wired up in this build yet — the Supabase project is not set in the config block.</p>';return;}
+  el.innerHTML='<h3>High scores</h3><p class="empty">Loading…</p>';
+  fetchBoard().then(function(rows){renderBoard(rows,mine);}).catch(function(){el.innerHTML='<h3>High scores</h3><p class="empty">Could not reach the board. It will show next time it loads.</p>';});
 }
 function renderPost(result){
   var el=document.getElementById("post"); if(!el)return;
   if(!BOARD_LIVE){el.innerHTML='<span class="muted">Score posting is not wired up in this build yet.</span>';return;}
-  if(!window.ethereum){el.innerHTML='<span class="muted">No wallet in this browser, so this score stays local. Install one to post.</span>';return;}
-  if(!W.addr){el.innerHTML='Connect a wallet to post this score under your address. Holding DRUM is not required.<br><button class="go" id="btn-connect-post">Connect wallet</button>';document.getElementById("btn-connect-post").addEventListener("click",function(){connectWallet().then(function(){renderPost(result);});});return;}
-  el.innerHTML='Post this run under <b>'+shortAddr(W.addr)+'</b>? You will be asked to sign a message — that is free, no transaction.<br><button class="go" id="btn-post">Post score</button>';
+  el.innerHTML='Put your initials on the board.'+(W.addr?' <span class="muted">Your wallet '+shortAddr(W.addr)+' rides along with the entry.</span>':' <span class="muted">No wallet needed.</span>')+
+    '<div class="ini-row"><input id="ini" class="ini-input" maxlength="3" autocomplete="off" spellcheck="false" placeholder="AAA" value="'+lastInitials+'"><button class="go" id="btn-post">Post score</button></div>';
+  var inp=document.getElementById("ini");
+  inp.addEventListener("input",function(){inp.value=inp.value.toUpperCase().replace(/[^A-Z0-9]/g,"").slice(0,3);});
+  inp.addEventListener("keydown",function(e){e.stopPropagation();if(e.key==="Enter")document.getElementById("btn-post").click();});
+  setTimeout(function(){inp.focus();},50);
   document.getElementById("btn-post").addEventListener("click",async function(){
+    var ini=inp.value.toUpperCase().replace(/[^A-Z0-9]/g,"");
+    if(!ini){inp.focus();el.querySelector(".muted").textContent=" Type at least one letter.";return;}
+    while(ini.length<3)ini+="_";
+    lastInitials=ini.replace(/_/g,"");
+    result.initials=ini;
     el.innerHTML='<span class="muted">Starting…</span>';
     try{
       var res=await postScore(result,function(t){el.innerHTML='<span class="muted">'+t+'</span>';});
-      el.innerHTML='<b>Posted.</b> '+(res&&res.rank?"You are #"+res.rank+" on the board.":"It is on the board.")+(res&&res.best===false?" Your earlier best still stands above it.":"");
-      loadBoard();
+      el.innerHTML='<b>'+ini+' is on the board'+(res&&res.rank?" at #"+res.rank:"")+'.</b>';
+      loadBoard(result);
     }catch(e){el.innerHTML='<b>Not posted.</b> '+(e.message||"Something went wrong.")+'<br><button class="go" id="btn-post-retry">Try again</button>';document.getElementById("btn-post-retry").addEventListener("click",function(){renderPost(result);});}
   });
 }
-
-// ================= world =================
-var COLS=26, ROWS=14, CELL=6;
-var ISLANDS=[[5,6],[6,6],[8,7],[17,6],[20,5],[21,5],[23,8],[24,8]];
-var NARROWS_A=11, NARROWS_B=14;
-function bounds(c){ if(c<4)return[2,11]; if(c<7)return[3,10]; if(c<11)return[5,9]; if(c<15)return[6,8]; if(c<19)return[5,9]; if(c<22)return[3,10]; return[2,11]; }
-function isLand(c,r){ if(c<0||c>=COLS||r<0||r>=ROWS)return true; var b=bounds(c); if(r<b[0]||r>b[1])return true; for(var i=0;i<ISLANDS.length;i++)if(ISLANDS[i][0]===c&&ISLANDS[i][1]===r)return true; return false; }
-function cx(c){return (c-COLS/2)*CELL+CELL/2;} function cz(r){return (r-ROWS/2)*CELL+CELL/2;}
-function colAt(x){return Math.floor((x-CELL/2)/CELL+COLS/2+0.5);} function rowAt(z){return Math.floor((z-CELL/2)/CELL+ROWS/2+0.5);}
-function landAtWorld(x,z){return isLand(colAt(x),rowAt(z));}
-// the ship collides with what it can see: the same shoreline the terrain mesh is built from
-function seaAt(x,z){return distToWater(x,z)<0.9;}
-function hullBlocked(px,pz,fx,fz){return !seaAt(px,pz)||!seaAt(px+fx*3.6,pz+fz*3.6)||!seaAt(px-fx*3.6,pz-fz*3.6);}
-var WEST_X=cx(1), EAST_X=cx(COLS-2), DRUMS_NEEDED=6, WORLD_W=COLS*CELL, WORLD_H=ROWS*CELL;
-function makeLane(){ var lane={},r=7,c,prev; for(c=0;c<COLS;c++){ prev=r; var b=bounds(c); if(r<b[0])r=b[0]; if(r>b[1])r=b[1]; if(c>1&&c<COLS-2&&Math.random()<0.4){var dr=Math.random()<0.5?-1:1;if(!isLand(c,r+dr))r+=dr;} if(isLand(c,r)){if(!isLand(c,r-1))r--;else if(!isLand(c,r+1))r++;} var lo=Math.min(prev,r),hi=Math.max(prev,r); for(var k=lo;k<=hi;k++)if(!isLand(c,k))lane[c+","+k]=true; lane["row"+c]=r; } return lane; }
-
-// ================= audio (synthesized, no files) =================
-var AC=null,master,engOsc,engFilt,engGain,rushGain,muted=false;
-function audioInit(){
-  if(AC){ if(AC.state==="suspended")AC.resume(); return; }
-  try{ AC=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){ return; }
-  master=AC.createGain(); master.gain.value=0.75; master.connect(AC.destination);
-  engOsc=AC.createOscillator(); engOsc.type="sawtooth"; engOsc.frequency.value=42;
-  engFilt=AC.createBiquadFilter(); engFilt.type="lowpass"; engFilt.frequency.value=200;
-  engGain=AC.createGain(); engGain.gain.value=0;
-  engOsc.connect(engFilt); engFilt.connect(engGain); engGain.connect(master); engOsc.start();
-  var rush=AC.createBufferSource(); rush.buffer=noiseBuf(2); rush.loop=true;
-  var rf=AC.createBiquadFilter(); rf.type="bandpass"; rf.frequency.value=900; rf.Q.value=0.5;
-  rushGain=AC.createGain(); rushGain.gain.value=0; rush.connect(rf); rf.connect(rushGain); rushGain.connect(master); rush.start();
-}
-function noiseBuf(sec){ var b=AC.createBuffer(1,Math.floor(AC.sampleRate*sec),AC.sampleRate),d=b.getChannelData(0); for(var i=0;i<d.length;i++)d[i]=Math.random()*2-1; return b; }
-function engineUpdate(frac){ if(!AC)return; var t=AC.currentTime; engOsc.frequency.setTargetAtTime(42+frac*70,t,0.12); engFilt.frequency.setTargetAtTime(180+frac*520,t,0.12); engGain.gain.setTargetAtTime(muted?0:0.10+frac*0.14,t,0.12); rushGain.gain.setTargetAtTime(muted?0:frac*0.16,t,0.15); }
-function nz(dur,f0,f1,vol,type){ if(!AC||muted)return; var s=AC.createBufferSource(); s.buffer=noiseBuf(dur); var f=AC.createBiquadFilter(); f.type=type||"lowpass"; f.frequency.setValueAtTime(f0,AC.currentTime); f.frequency.exponentialRampToValueAtTime(Math.max(30,f1),AC.currentTime+dur); var g=AC.createGain(); g.gain.setValueAtTime(vol,AC.currentTime); g.gain.exponentialRampToValueAtTime(0.001,AC.currentTime+dur); s.connect(f); f.connect(g); g.connect(master); s.start(); s.stop(AC.currentTime+dur); }
-function tone(f0,f1,dur,vol,type){ if(!AC||muted)return; var o=AC.createOscillator(); o.type=type||"sine"; o.frequency.setValueAtTime(f0,AC.currentTime); o.frequency.exponentialRampToValueAtTime(Math.max(20,f1),AC.currentTime+dur); var g=AC.createGain(); g.gain.setValueAtTime(vol,AC.currentTime); g.gain.exponentialRampToValueAtTime(0.001,AC.currentTime+dur); o.connect(g); g.connect(master); o.start(); o.stop(AC.currentTime+dur); }
-var sfx={
-  gun:function(){ nz(0.12,3200,400,0.32); tone(170,55,0.08,0.22,"square"); },
-  boom:function(size){ var d=0.3+Math.min(size,16)*0.045; nz(d,900,55,Math.min(0.75,0.25+size*0.04)); if(size>3) tone(85,28,d,0.45,"sine"); },
-  hit:function(){ nz(0.55,700,45,0.75); tone(60,22,0.55,0.6,"sine"); },
-  pickup:function(){ tone(520,780,0.12,0.18); setTimeout(function(){tone(780,1040,0.14,0.18);},90); },
-  repair:function(){ tone(330,660,0.35,0.2,"triangle"); setTimeout(function(){tone(660,990,0.3,0.16,"triangle");},160); },
-  alarm:function(){ [0,190,380].forEach(function(t,i){ setTimeout(function(){tone(i===1?640:880,i===1?640:880,0.15,0.16,"square");},t); }); },
-  whistle:function(dur){ tone(1600,260,dur,0.11,"sine"); },
-  jam:function(){ nz(0.3,220,80,0.3); tone(120,38,0.3,0.2,"square"); },
-  gate:function(){ [330,415,494].forEach(function(f,i){ setTimeout(function(){tone(f,f,i===2?0.8:0.5,0.14,"triangle");},i*120); }); },
-  smoke:function(){ nz(0.9,1400,250,0.25,"bandpass"); },
-  turn:function(){ [494,415,330,415].forEach(function(f,i){ setTimeout(function(){tone(f,f,0.4,0.13,"triangle");},i*150); }); }
-};
 
 // ================= renderer =================
 var HORIZON=0xc8c6b6, ZENITH=0x2a6483;
@@ -401,10 +365,10 @@ function brief(){S.phase="brief";
   document.getElementById("btn-go").addEventListener("click",function(){audioInit();hideCard();resetRun();});}
 function over(win,why){S.phase="over";engineUpdate(0);
   var time=Math.round(S.t),timeBonus=win?Math.max(0,900-time*3):0,hullBonus=win?S.hull*300:0,total=S.score+timeBonus+hullBonus;
-  var result={wallet:W.addr||"",score:total,drums:S.drums,kills:S.kills,mines:minesCleared,batteries:S.batsKilled,time:time,hull:S.hull,won:win,nonce:Date.now()};
+  var result={initials:"",wallet:W.addr||"",score:total,drums:S.drums,kills:S.kills,mines:minesCleared,batteries:S.batsKilled,time:time,hull:S.hull,won:win,nonce:Date.now()};
   showCard('<h2>'+(win?"Home with the cargo":"Run ended")+'</h2><p class="lead">'+why+'</p><div class="score">'+total+'</div><table><tr><td>Drums loaded</td><td>'+S.drums+' × 100</td></tr><tr><td>Attack craft sunk</td><td>'+S.kills+' × 250</td></tr><tr><td>Mines cleared</td><td>'+minesCleared+' × 50</td></tr><tr><td>Batteries silenced</td><td>'+S.batsKilled+' × 400</td></tr>'+(S.leg===2?'<tr><td>Turned at the gate</td><td>+300</td></tr>':'')+(win?'<tr><td>Time ('+time+'s)</td><td>+'+timeBonus+'</td></tr><tr><td>Hull intact</td><td>+'+hullBonus+'</td></tr>':'')+'</table><div id="post"></div><div class="board" id="board"></div><button class="go" id="btn-go">Run it again</button>');
   document.getElementById("btn-go").addEventListener("click",function(){audioInit();hideCard();resetRun();});
-  renderPost(result); loadBoard();}
+  renderPost(result); loadBoard(null);}
 
 // minimap
 var mm=document.getElementById("minimap"),mctx=mm.getContext("2d"),MW=416,MH=224;mm.width=MW;mm.height=MH;
