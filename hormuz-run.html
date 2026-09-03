@@ -15,6 +15,8 @@ canvas{display:block}
 .chip{background:rgba(8,22,31,.72);border:1px solid rgba(233,227,211,.22);padding:5px 11px;font-size:.78rem;letter-spacing:.02em}
 .chip b{font-weight:600}
 .chip.dim{color:#8fa6ba}
+.chip.obj{display:inline-flex;align-items:center;gap:8px;color:#ffb347;border-color:rgba(255,179,71,.5)}
+.chip.obj i{display:inline-block;font-style:normal;font-size:1rem;line-height:1;transform:rotate(-90deg);transition:transform .12s linear}
 .chip.wallet{pointer-events:auto;cursor:pointer;font:inherit;font-size:.78rem;color:#ffb347;border-color:rgba(255,179,71,.5)}
 .chip.wallet:hover{background:rgba(255,179,71,.12)}
 #post{margin:0 0 16px;padding:10px 12px;background:rgba(255,179,71,.08);border-left:3px solid #ffb347;font-size:.84rem;line-height:1.5}
@@ -78,7 +80,7 @@ button.go:focus-visible{outline:2px solid #e9e3d3;outline-offset:3px}
     <span class="chip smk">Smoke <span id="hud-smoke"></span></span>
     <span class="chip">Speed <b id="hud-speed">0</b> kn</span>
     <span class="chip">Score <b id="hud-score">0</b></span>
-    <span class="chip dim" id="hud-leg">Outbound</span>
+    <span class="chip obj" id="hud-leg"><i id="hud-arrow">➤</i><span id="hud-obj">Outbound</span></span>
     <span class="chip dim" id="hud-snd">Sound on · M</span>
     <button class="chip wallet" id="hud-wallet" type="button" title="Connect to post scores under your address. Not required to play.">Connect wallet</button>
   </div>
@@ -368,9 +370,13 @@ function resetRun(){
   syncHud();
 }
 function addScore(n){S.score+=n;syncHud();}
-var el={drums:document.getElementById("hud-drums"),hull:document.getElementById("hud-hull"),speed:document.getElementById("hud-speed"),guide:document.getElementById("guide"),heat:document.getElementById("hud-heat"),score:document.getElementById("hud-score"),smoke:document.getElementById("hud-smoke"),leg:document.getElementById("hud-leg"),snd:document.getElementById("hud-snd")};
+var el={drums:document.getElementById("hud-drums"),hull:document.getElementById("hud-hull"),speed:document.getElementById("hud-speed"),guide:document.getElementById("guide"),heat:document.getElementById("hud-heat"),score:document.getElementById("hud-score"),smoke:document.getElementById("hud-smoke"),leg:document.getElementById("hud-leg"),obj:document.getElementById("hud-obj"),arrow:document.getElementById("hud-arrow"),snd:document.getElementById("hud-snd")};
 function guide(t,warn){el.guide.innerHTML=t;el.guide.className=warn?"warn":"";}
-function syncHud(){el.drums.textContent=S.drums;var out="";for(var i=0;i<3;i++)out+='<i class="'+(i<S.hull?"":"gone")+'"></i>';el.hull.innerHTML=out;el.speed.textContent=Math.round(Math.abs(S.speed)*1.2);el.heat.style.width=Math.min(100,S.heat*100)+"%";el.heat.className=S.jammed?"hot":"";el.score.textContent=S.score;var sm="";for(i=0;i<3;i++)sm+='<i class="'+(i<S.smokeCharges?"":"gone")+'"></i>';el.smoke.innerHTML=sm;el.leg.textContent=S.leg===1?"Outbound · east":"Return · west";el.snd.textContent=muted?"Sound off · M":"Sound on · M";}
+function syncHud(){el.drums.textContent=S.drums;var out="";for(var i=0;i<3;i++)out+='<i class="'+(i<S.hull?"":"gone")+'"></i>';el.hull.innerHTML=out;el.speed.textContent=Math.round(Math.abs(S.speed)*1.2);el.heat.style.width=Math.min(100,S.heat*100)+"%";el.heat.className=S.jammed?"hot":"";el.score.textContent=S.score;var sm="";for(i=0;i<3;i++)sm+='<i class="'+(i<S.smokeCharges?"":"gone")+'"></i>';el.smoke.innerHTML=sm;
+  var objText;
+  if(S.leg===1) objText = S.drums>=DRUMS_NEEDED ? "East gate is open — go east" : "East gate · need "+(DRUMS_NEEDED-S.drums)+" more drum"+(DRUMS_NEEDED-S.drums===1?"":"s");
+  else objText = "Home · west gate";
+  el.obj.textContent=objText;el.snd.textContent=muted?"Sound off · M":"Sound on · M";}
 var veil=document.getElementById("veil"),card=document.getElementById("card");
 function showCard(h){card.innerHTML=h;veil.classList.remove("hide");}
 function hideCard(){veil.classList.add("hide");}
@@ -588,7 +594,12 @@ function frame(){
   camera.lookAt(ship.position.x+Math.sin(ship.rotation.y)*12+jx,1.5+jy,ship.position.z+Math.cos(ship.rotation.y)*12+jx);
   sky.position.copy(camera.position);sun.target.position.copy(ship.position);sun.target.updateMatrixWorld();sun.position.set(ship.position.x-70,80,ship.position.z+55);
   renderer.render(scene,camera);
-  if(S.phase==="run")drawMap();
+  if(S.phase==="run"){
+    drawMap();
+    var ox=S.leg===1?EAST_X+3:WEST_X-3, oz=cz(7.5);
+    var rel=Math.atan2(ox-ship.position.x,oz-ship.position.z)-ship.rotation.y;
+    el.arrow.style.transform="rotate("+(-rel-Math.PI/2)+"rad)";
+  }
 }
 spawnWorld();ship.position.set(WEST_X,0,cz(lane["row"+1]));ship.rotation.y=Math.PI/2;camera.position.set(WEST_X-26,15,cz(7));
 syncHud();drawMap();brief();frame();
