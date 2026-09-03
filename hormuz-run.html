@@ -162,11 +162,23 @@ window.addEventListener("keydown",function(e){if(e.key===" "&&document.activeEle
 function buildMessage(p){
   return "Hormuz Run score\nwallet: "+p.wallet+"\nscore: "+p.score+"\ndrums: "+p.drums+"\nkills: "+p.kills+"\nmines: "+p.mines+"\nbatteries: "+p.batteries+"\ntime: "+p.time+"\nhull: "+p.hull+"\nwon: "+p.won+"\nnonce: "+p.nonce;
 }
-async function postScore(p){
+async function postScore(p,status){
   p.wallet=W.addr;
   var msg=buildMessage(p);
+  if(status)status("Waiting for your signature in the wallet…");
   var sig=await window.ethereum.request({method:"personal_sign",params:[msg,W.addr]});
-  var r=await fetch(CONFIG.SUPABASE_URL+CONFIG.SCORE_FN,{method:"POST",headers:{"Content-Type":"application/json","apikey":CONFIG.SUPABASE_ANON,"Authorization":"Bearer "+CONFIG.SUPABASE_ANON},body:JSON.stringify({message:msg,signature:sig})});
+  if(status)status("Signed. Sending to the leaderboard…");
+  var ctl=new AbortController(),timer=setTimeout(function(){ctl.abort();},15000);
+  var r;
+  try{
+    r=await fetch(CONFIG.SUPABASE_URL+CONFIG.SCORE_FN,{method:"POST",signal:ctl.signal,headers:{"Content-Type":"application/json","apikey":CONFIG.SUPABASE_ANON,"Authorization":"Bearer "+CONFIG.SUPABASE_ANON},body:JSON.stringify({message:msg,signature:sig})});
+  }catch(e){
+    clearTimeout(timer);
+    if(e&&e.name==="AbortError")throw new Error("The score function did not answer within 15 seconds.");
+    throw new Error("Could not reach the score function (network or CORS). Check the function is deployed with JWT verification off.");
+  }
+  clearTimeout(timer);
+  if(status)status("Function answered — reading the result…");
   var j=null; try{j=await r.json();}catch(e){}
   if(!r.ok)throw new Error((j&&j.error)||("HTTP "+r.status));
   if(!j||j.ok!==true)throw new Error("The score function answered but did not confirm a save — check that index.ts is deployed to smooth-processor, not the default template.");
@@ -195,9 +207,9 @@ function renderPost(result){
   if(!W.addr){el.innerHTML='Connect a wallet to post this score under your address. Holding DRUM is not required.<br><button class="go" id="btn-connect-post">Connect wallet</button>';document.getElementById("btn-connect-post").addEventListener("click",function(){connectWallet().then(function(){renderPost(result);});});return;}
   el.innerHTML='Post this run under <b>'+shortAddr(W.addr)+'</b>? You will be asked to sign a message — that is free, no transaction.<br><button class="go" id="btn-post">Post score</button>';
   document.getElementById("btn-post").addEventListener("click",async function(){
-    el.innerHTML='<span class="muted">Waiting for your signature…</span>';
+    el.innerHTML='<span class="muted">Starting…</span>';
     try{
-      var res=await postScore(result);
+      var res=await postScore(result,function(t){el.innerHTML='<span class="muted">'+t+'</span>';});
       el.innerHTML='<b>Posted.</b> '+(res&&res.rank?"You are #"+res.rank+" on the board.":"It is on the board.")+(res&&res.best===false?" Your earlier best still stands above it.":"");
       loadBoard();
     }catch(e){el.innerHTML='<b>Not posted.</b> '+(e.message||"Something went wrong.")+'<br><button class="go" id="btn-post-retry">Try again</button>';document.getElementById("btn-post-retry").addEventListener("click",function(){renderPost(result);});}
