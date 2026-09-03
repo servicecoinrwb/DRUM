@@ -227,6 +227,53 @@ function renderPost(result){
   });
 }
 
+// ================= world =================
+var COLS=26, ROWS=14, CELL=6;
+var ISLANDS=[[5,6],[6,6],[8,7],[17,6],[20,5],[21,5],[23,8],[24,8]];
+var NARROWS_A=11, NARROWS_B=14;
+function bounds(c){ if(c<4)return[2,11]; if(c<7)return[3,10]; if(c<11)return[5,9]; if(c<15)return[6,8]; if(c<19)return[5,9]; if(c<22)return[3,10]; return[2,11]; }
+function isLand(c,r){ if(c<0||c>=COLS||r<0||r>=ROWS)return true; var b=bounds(c); if(r<b[0]||r>b[1])return true; for(var i=0;i<ISLANDS.length;i++)if(ISLANDS[i][0]===c&&ISLANDS[i][1]===r)return true; return false; }
+function cx(c){return (c-COLS/2)*CELL+CELL/2;} function cz(r){return (r-ROWS/2)*CELL+CELL/2;}
+function colAt(x){return Math.floor((x-CELL/2)/CELL+COLS/2+0.5);} function rowAt(z){return Math.floor((z-CELL/2)/CELL+ROWS/2+0.5);}
+function landAtWorld(x,z){return isLand(colAt(x),rowAt(z));}
+// the ship collides with what it can see: the same shoreline the terrain mesh is built from
+function seaAt(x,z){return distToWater(x,z)<0.9;}
+function hullBlocked(px,pz,fx,fz){return !seaAt(px,pz)||!seaAt(px+fx*3.6,pz+fz*3.6)||!seaAt(px-fx*3.6,pz-fz*3.6);}
+var WEST_X=cx(1), EAST_X=cx(COLS-2), DRUMS_NEEDED=6, WORLD_W=COLS*CELL, WORLD_H=ROWS*CELL;
+function makeLane(){ var lane={},r=7,c,prev; for(c=0;c<COLS;c++){ prev=r; var b=bounds(c); if(r<b[0])r=b[0]; if(r>b[1])r=b[1]; if(c>1&&c<COLS-2&&Math.random()<0.4){var dr=Math.random()<0.5?-1:1;if(!isLand(c,r+dr))r+=dr;} if(isLand(c,r)){if(!isLand(c,r-1))r--;else if(!isLand(c,r+1))r++;} var lo=Math.min(prev,r),hi=Math.max(prev,r); for(var k=lo;k<=hi;k++)if(!isLand(c,k))lane[c+","+k]=true; lane["row"+c]=r; } return lane; }
+
+// ================= audio (synthesized, no files) =================
+var AC=null,master,engOsc,engFilt,engGain,rushGain,muted=false;
+function audioInit(){
+  if(AC){ if(AC.state==="suspended")AC.resume(); return; }
+  try{ AC=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){ return; }
+  master=AC.createGain(); master.gain.value=0.75; master.connect(AC.destination);
+  engOsc=AC.createOscillator(); engOsc.type="sawtooth"; engOsc.frequency.value=42;
+  engFilt=AC.createBiquadFilter(); engFilt.type="lowpass"; engFilt.frequency.value=200;
+  engGain=AC.createGain(); engGain.gain.value=0;
+  engOsc.connect(engFilt); engFilt.connect(engGain); engGain.connect(master); engOsc.start();
+  var rush=AC.createBufferSource(); rush.buffer=noiseBuf(2); rush.loop=true;
+  var rf=AC.createBiquadFilter(); rf.type="bandpass"; rf.frequency.value=900; rf.Q.value=0.5;
+  rushGain=AC.createGain(); rushGain.gain.value=0; rush.connect(rf); rf.connect(rushGain); rushGain.connect(master); rush.start();
+}
+function noiseBuf(sec){ var b=AC.createBuffer(1,Math.floor(AC.sampleRate*sec),AC.sampleRate),d=b.getChannelData(0); for(var i=0;i<d.length;i++)d[i]=Math.random()*2-1; return b; }
+function engineUpdate(frac){ if(!AC)return; var t=AC.currentTime; engOsc.frequency.setTargetAtTime(42+frac*70,t,0.12); engFilt.frequency.setTargetAtTime(180+frac*520,t,0.12); engGain.gain.setTargetAtTime(muted?0:0.10+frac*0.14,t,0.12); rushGain.gain.setTargetAtTime(muted?0:frac*0.16,t,0.15); }
+function nz(dur,f0,f1,vol,type){ if(!AC||muted)return; var s=AC.createBufferSource(); s.buffer=noiseBuf(dur); var f=AC.createBiquadFilter(); f.type=type||"lowpass"; f.frequency.setValueAtTime(f0,AC.currentTime); f.frequency.exponentialRampToValueAtTime(Math.max(30,f1),AC.currentTime+dur); var g=AC.createGain(); g.gain.setValueAtTime(vol,AC.currentTime); g.gain.exponentialRampToValueAtTime(0.001,AC.currentTime+dur); s.connect(f); f.connect(g); g.connect(master); s.start(); s.stop(AC.currentTime+dur); }
+function tone(f0,f1,dur,vol,type){ if(!AC||muted)return; var o=AC.createOscillator(); o.type=type||"sine"; o.frequency.setValueAtTime(f0,AC.currentTime); o.frequency.exponentialRampToValueAtTime(Math.max(20,f1),AC.currentTime+dur); var g=AC.createGain(); g.gain.setValueAtTime(vol,AC.currentTime); g.gain.exponentialRampToValueAtTime(0.001,AC.currentTime+dur); o.connect(g); g.connect(master); o.start(); o.stop(AC.currentTime+dur); }
+var sfx={
+  gun:function(){ nz(0.12,3200,400,0.32); tone(170,55,0.08,0.22,"square"); },
+  boom:function(size){ var d=0.3+Math.min(size,16)*0.045; nz(d,900,55,Math.min(0.75,0.25+size*0.04)); if(size>3) tone(85,28,d,0.45,"sine"); },
+  hit:function(){ nz(0.55,700,45,0.75); tone(60,22,0.55,0.6,"sine"); },
+  pickup:function(){ tone(520,780,0.12,0.18); setTimeout(function(){tone(780,1040,0.14,0.18);},90); },
+  repair:function(){ tone(330,660,0.35,0.2,"triangle"); setTimeout(function(){tone(660,990,0.3,0.16,"triangle");},160); },
+  alarm:function(){ [0,190,380].forEach(function(t,i){ setTimeout(function(){tone(i===1?640:880,i===1?640:880,0.15,0.16,"square");},t); }); },
+  whistle:function(dur){ tone(1600,260,dur,0.11,"sine"); },
+  jam:function(){ nz(0.3,220,80,0.3); tone(120,38,0.3,0.2,"square"); },
+  gate:function(){ [330,415,494].forEach(function(f,i){ setTimeout(function(){tone(f,f,i===2?0.8:0.5,0.14,"triangle");},i*120); }); },
+  smoke:function(){ nz(0.9,1400,250,0.25,"bandpass"); },
+  turn:function(){ [494,415,330,415].forEach(function(f,i){ setTimeout(function(){tone(f,f,0.4,0.13,"triangle");},i*150); }); }
+};
+
 // ================= renderer =================
 var HORIZON=0xc8c6b6, ZENITH=0x2a6483;
 var scene=new THREE.Scene(); scene.fog=new THREE.Fog(HORIZON,95,240);
