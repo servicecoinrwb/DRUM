@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>Hormuz Run</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0;height:100%;overflow:hidden;background:#08161f}
+body{font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;color:#e9e3d3}
+#app{position:fixed;inset:0}
+canvas{display:block}
+#hud{position:fixed;top:0;left:0;right:0;padding:12px 14px;pointer-events:none;z-index:5}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.chip{background:rgba(8,22,31,.72);border:1px solid rgba(233,227,211,.22);padding:5px 11px;font-size:.78rem;letter-spacing:.02em}
+.chip b{font-weight:600}
+.chip.dim{color:#8fa6ba}
+.chip.wallet{pointer-events:auto;cursor:pointer;font:inherit;font-size:.78rem;color:#ffb347;border-color:rgba(255,179,71,.5)}
+.chip.wallet:hover{background:rgba(255,179,71,.12)}
+#post{margin:0 0 16px;padding:10px 12px;background:rgba(255,179,71,.08);border-left:3px solid #ffb347;font-size:.84rem;line-height:1.5}
+#post button.go{padding:8px 14px;font-size:.84rem;margin-top:6px}
+#post .muted{color:#8fa6ba}
+.board{margin:0 0 16px}
+.board h3{font-size:.72rem;font-weight:600;color:#8fa6ba;margin:0 0 6px}
+.board ol{margin:0;padding:0;list-style:none;font-size:.82rem}
+.board li{display:flex;gap:10px;padding:3px 0;border-bottom:1px solid rgba(233,227,211,.08)}
+.board li span:first-child{width:22px;color:#8fa6ba}
+.board li span:nth-child(2){flex:1;font-family:ui-monospace,Menlo,monospace;font-size:.78rem}
+.board li.me{color:#ffb347}
+.board .empty{font-size:.8rem;color:#8fa6ba}
+.hull{display:flex;gap:4px;align-items:center}
+.hull i{width:16px;height:7px;background:#c21e7a;display:block}
+.hull i.gone{background:rgba(233,227,211,.18)}
+.heat{display:flex;gap:6px;align-items:center}
+.heat span{display:block;width:70px;height:7px;background:rgba(233,227,211,.16);position:relative}
+.heat span i{position:absolute;left:0;top:0;bottom:0;background:#e0952a;width:0}
+.heat span i.hot{background:#ff4d3a}
+.smk i{display:inline-block;width:9px;height:9px;border-radius:50%;background:#c9d3d8;margin-left:3px}
+.smk i.gone{background:rgba(233,227,211,.18)}
+#guide{margin-top:9px;max-width:46ch;background:rgba(194,30,122,.16);border-left:3px solid #c21e7a;padding:8px 11px;font-size:.82rem;line-height:1.45}
+#guide.warn{background:rgba(255,77,58,.22);border-color:#ff4d3a}
+#chart{position:fixed;top:12px;right:14px;z-index:6;pointer-events:none;background:rgba(8,22,31,.72);border:1px solid rgba(233,227,211,.22);padding:6px}
+#chart canvas{display:block;width:208px;height:112px}
+#chart .lbl{font-size:.62rem;color:#8fa6ba;margin:4px 0 0;display:flex;justify-content:space-between}
+.veil{position:fixed;inset:0;z-index:20;background:rgba(6,18,26,.9);display:flex;align-items:center;justify-content:center;padding:24px}
+.veil.hide{display:none}
+.card{max-width:540px}
+.card h1{font-family:Georgia,"Times New Roman",serif;font-style:italic;font-weight:400;font-size:2.2rem;margin:0 0 6px}
+.card h2{font-family:Georgia,serif;font-style:italic;font-weight:400;font-size:1.7rem;margin:0 0 6px}
+.card p{margin:0 0 12px;font-size:.9rem;color:#a9bdcb;line-height:1.55}
+.card p.lead{color:#e9e3d3}
+.card .score{font-family:Georgia,serif;font-style:italic;font-size:2.6rem;color:#ffb347;margin:4px 0 10px}
+.card table{font-size:.82rem;color:#a9bdcb;border-collapse:collapse;margin:0 0 16px}
+.card td{padding:2px 14px 2px 0}
+.card td:last-child{text-align:right;color:#e9e3d3}
+.keys{font-size:.82rem;color:#a9bdcb;margin:0 0 18px;line-height:1.9}
+.keys kbd{background:rgba(233,227,211,.1);border:1px solid rgba(233,227,211,.3);padding:2px 7px;font-family:inherit;font-size:.78rem;margin-right:3px}
+button.go{font:inherit;font-size:.9rem;background:#c21e7a;color:#fff;border:0;padding:11px 22px;cursor:pointer}
+button.go:hover{background:#a81868}
+button.go:focus-visible{outline:2px solid #e9e3d3;outline-offset:3px}
+#touch{position:fixed;bottom:0;left:0;right:0;z-index:10;display:none;padding:16px;gap:12px;justify-content:space-between;pointer-events:none}
+#touch .pad{display:flex;gap:12px;pointer-events:auto;align-items:flex-end}
+#touch button{width:66px;height:66px;border-radius:50%;background:rgba(8,22,31,.7);border:1px solid rgba(233,227,211,.3);color:#e9e3d3;font-size:1.3rem;font-family:inherit}
+#touch button.fire{width:78px;height:78px;background:rgba(194,30,122,.45);font-size:.85rem}
+#touch button.small{width:54px;height:54px;font-size:.7rem}
+#touch button:active{background:rgba(194,30,122,.6)}
+@media (pointer:coarse){#touch{display:flex}}
+@media (max-width:600px){#chart{display:none}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="hud">
+  <div class="row">
+    <span class="chip">Drums <b id="hud-drums">0</b> / 6</span>
+    <span class="chip hull">Hull <span id="hud-hull"></span></span>
+    <span class="chip heat">Gun <span><i id="hud-heat"></i></span></span>
+    <span class="chip smk">Smoke <span id="hud-smoke"></span></span>
+    <span class="chip">Speed <b id="hud-speed">0</b> kn</span>
+    <span class="chip">Score <b id="hud-score">0</b></span>
+    <span class="chip dim" id="hud-leg">Outbound</span>
+    <span class="chip dim" id="hud-snd">Sound on · M</span>
+    <button class="chip wallet" id="hud-wallet" type="button" title="Connect to post scores under your address. Not required to play.">Connect wallet</button>
+  </div>
+  <div id="guide">Standing by.</div>
+</div>
+<div id="chart">
+  <canvas id="minimap"></canvas>
+  <div class="lbl"><span>◆ drum ✚ repair ● mine ▲ craft ■ battery</span><span>west ↔ east</span></div>
+</div>
+<div id="touch">
+  <div class="pad"><button id="t-left" aria-label="Turn to port">◀</button><button id="t-right" aria-label="Turn to starboard">▶</button></div>
+  <div class="pad"><button id="t-smoke" class="small" aria-label="Smoke">SMOKE</button><button id="t-fire" class="fire" aria-label="Fire">FIRE</button><button id="t-rev" aria-label="Astern">▼</button><button id="t-fwd" aria-label="Ahead">▲</button></div>
+</div>
+<div class="veil" id="veil"><div class="card" id="card"></div></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+"use strict";
+if(!window.THREE){ document.getElementById("card").innerHTML="<h2>Could not load the 3D library</h2><p>The renderer script did not load. Check the connection and reload.</p>"; return; }
+
+// ================= config — fill these in after deploy =================
+var CONFIG={
+  DRUM_ADDRESS:"0x0000000000000000000000000000000000000000",  // DRUM token on 4663
+  CHAIN_ID:4663, CHAIN_HEX:"0x1237", CHAIN_NAME:"Robinhood Chain",
+  RPC:"https://rpc.mainnet.chain.robinhood.com",
+  EXPLORER:"https://robinhoodchain.blockscout.com",
+  SUPABASE_URL:"https://YOUR-PROJECT.supabase.co",
+  SUPABASE_ANON:"YOUR-ANON-KEY",
+  SCORE_FN:"/functions/v1/submit-score"
+};
+var TOKEN_LIVE=!/^0x0{40}$/i.test(CONFIG.DRUM_ADDRESS);
+var BOARD_LIVE=!/YOUR-PROJECT/.test(CONFIG.SUPABASE_URL);
+
+// ================= wallet =================
+var W={addr:null,bal:null,pollTimer:null};
+function shortAddr(a){return a.slice(0,6)+"…"+a.slice(-4);}
+function fmtDrum(n){if(n>=1e9)return (n/1e9).toFixed(2)+"B";if(n>=1e6)return (n/1e6).toFixed(2)+"M";if(n>=1e3)return (n/1e3).toFixed(1)+"K";return n.toFixed(0);}
+function syncWallet(){
+  var b=document.getElementById("hud-wallet");
+  if(!W.addr){b.textContent="Connect wallet";b.title="Connect to post your score under your address. Not required to play.";return;}
+  var s=shortAddr(W.addr);
+  if(!TOKEN_LIVE){b.textContent=s+" · DRUM not deployed yet";b.title="The token contract address has not been set in this build.";}
+  else if(W.bal===null){b.textContent=s+" · reading DRUM…";b.title="";}
+  else if(W.bal<0){b.textContent=s+" · DRUM read failed";b.title="Could not read your balance from the chain. Scores still post.";}
+  else{b.textContent=s+" · "+fmtDrum(W.bal)+" DRUM";b.title=W.bal===0?"You hold no DRUM. Scores still post — holding is not required.":W.bal.toLocaleString()+" DRUM";}
+}
+async function refreshBalance(){
+  if(!W.addr||!window.ethereum||!TOKEN_LIVE){W.bal=null;return;}
+  try{
+    var data="0x70a08231"+W.addr.slice(2).toLowerCase().padStart(64,"0");
+    var hex=await window.ethereum.request({method:"eth_call",params:[{to:CONFIG.DRUM_ADDRESS,data:data},"latest"]});
+    W.bal=Number(BigInt(hex))/1e18;
+  }catch(e){W.bal=-1;}
+}
+async function connectWallet(){
+  var eth=window.ethereum;
+  if(!eth){guide("<b>No wallet found.</b> Install MetaMask or Rabby, or open this in a wallet browser. You can still play — you just cannot post a score.",true);return;}
+  try{
+    var accs=await eth.request({method:"eth_requestAccounts"});
+    W.addr=accs[0]||null; if(!W.addr)return;
+    try{await eth.request({method:"wallet_switchEthereumChain",params:[{chainId:CONFIG.CHAIN_HEX}]});}
+    catch(e){
+      if(e&&(e.code===4902||/unrecognized|not added|Unrecognized/i.test(e.message||""))){
+        await eth.request({method:"wallet_addEthereumChain",params:[{chainId:CONFIG.CHAIN_HEX,chainName:CONFIG.CHAIN_NAME,nativeCurrency:{name:"Ether",symbol:"ETH",decimals:18},rpcUrls:[CONFIG.RPC],blockExplorerUrls:[CONFIG.EXPLORER]}]});
+      } else throw e;
+    }
+    if(eth.on&&!W.bound){W.bound=true;eth.on("accountsChanged",function(a){W.addr=a[0]||null;W.bal=null;syncWallet();refreshBalance().then(syncWallet);});eth.on("chainChanged",function(){W.bal=null;syncWallet();refreshBalance().then(syncWallet);});}
+    syncWallet(); await refreshBalance(); syncWallet();
+    if(W.pollTimer)clearInterval(W.pollTimer); W.pollTimer=setInterval(function(){refreshBalance().then(syncWallet);},30000);
+    if(S.phase==="run")guide("Wallet connected as "+shortAddr(W.addr)+". Your score posts under that address when the run ends.");
+  }catch(e){guide("<b>Wallet connection cancelled or failed.</b> You can still play; connect again any time from the top bar.",true);}
+}
+document.getElementById("hud-wallet").addEventListener("click",connectWallet);
+window.addEventListener("keydown",function(e){if(e.key===" "&&document.activeElement===document.getElementById("hud-wallet"))document.activeElement.blur();});
+
+// ================= scores =================
+function buildMessage(p){
+  return "Hormuz Run score\nwallet: "+p.wallet+"\nscore: "+p.score+"\ndrums: "+p.drums+"\nkills: "+p.kills+"\nmines: "+p.mines+"\nbatteries: "+p.batteries+"\ntime: "+p.time+"\nhull: "+p.hull+"\nwon: "+p.won+"\nnonce: "+p.nonce;
+}
+async function postScore(p){
+  p.wallet=W.addr;
+  var msg=buildMessage(p);
+  var sig=await window.ethereum.request({method:"personal_sign",params:[msg,W.addr]});
+  var r=await fetch(CONFIG.SUPABASE_URL+CONFIG.SCORE_FN,{method:"POST",headers:{"Content-Type":"application/json","apikey":CONFIG.SUPABASE_ANON,"Authorization":"Bearer "+CONFIG.SUPABASE_ANON},body:JSON.stringify({message:msg,signature:sig})});
+  var j=null; try{j=await r.json();}catch(e){}
+  if(!r.ok)throw new Error((j&&j.error)||("HTTP "+r.status));
+  return j;
+}
+async function fetchBoard(){
+  var r=await fetch(CONFIG.SUPABASE_URL+"/rest/v1/drum_leaderboard?select=wallet,score,drums,kills,time_s,won&order=score.desc&limit=10",{headers:{apikey:CONFIG.SUPABASE_ANON,Authorization:"Bearer "+CONFIG.SUPABASE_ANON}});
+  if(!r.ok)throw new Error("HTTP "+r.status);
+  return r.json();
+}
+function renderBoard(rows,me){
+  var el=document.getElementById("board"); if(!el)return;
+  if(!rows||!rows.length){el.innerHTML='<h3>Leaderboard</h3><p class="empty">No scores posted yet. Yours would be the first.</p>';return;}
+  el.innerHTML='<h3>Leaderboard · best run per wallet</h3><ol>'+rows.map(function(r,i){return '<li class="'+(me&&r.wallet.toLowerCase()===me.toLowerCase()?"me":"")+'"><span>'+(i+1)+'</span><span>'+shortAddr(r.wallet)+'</span><span>'+r.score+'</span></li>';}).join("")+'</ol>';
+}
+function loadBoard(){
+  var el=document.getElementById("board"); if(!el)return;
+  if(!BOARD_LIVE){el.innerHTML='<h3>Leaderboard</h3><p class="empty">Not wired up in this build yet — the Supabase project is not set in the config block.</p>';return;}
+  el.innerHTML='<h3>Leaderboard</h3><p class="empty">Loading…</p>';
+  fetchBoard().then(function(rows){renderBoard(rows,W.addr);}).catch(function(){el.innerHTML='<h3>Leaderboard</h3><p class="empty">Could not reach the leaderboard. It will show next time it loads.</p>';});
+}
+function renderPost(result){
+  var el=document.getElementById("post"); if(!el)return;
+  if(!BOARD_LIVE){el.innerHTML='<span class="muted">Score posting is not wired up in this build yet.</span>';return;}
+  if(!window.ethereum){el.innerHTML='<span class="muted">No wallet in this browser, so this score stays local. Install one to post.</span>';return;}
+  if(!W.addr){el.innerHTML='Connect a wallet to post this score under your address. Holding DRUM is not required.<br><button class="go" id="btn-connect-post">Connect wallet</button>';document.getElementById("btn-connect-post").addEventListener("click",function(){connectWallet().then(function(){renderPost(result);});});return;}
+  el.innerHTML='Post this run under <b>'+shortAddr(W.addr)+'</b>? You will be asked to sign a message — that is free, no transaction.<br><button class="go" id="btn-post">Post score</button>';
+  document.getElementById("btn-post").addEventListener("click",async function(){
+    el.innerHTML='<span class="muted">Waiting for your signature…</span>';
+    try{
+      var res=await postScore(result);
+      el.innerHTML='<b>Posted.</b> '+(res&&res.rank?"You are #"+res.rank+" on the board.":"It is on the board.")+(res&&res.best===false?" Your earlier best still stands above it.":"");
+      loadBoard();
+    }catch(e){el.innerHTML='<b>Not posted.</b> '+(e.message||"Something went wrong.")+'<br><button class="go" id="btn-post-retry">Try again</button>';document.getElementById("btn-post-retry").addEventListener("click",function(){renderPost(result);});}
+  });
+}
+
+// ================= world =================
+var COLS=26, ROWS=14, CELL=6;
+var ISLANDS=[[5,6],[6,6],[8,7],[17,6],[20,5],[21,5],[23,8],[24,8]];
+var NARROWS_A=11, NARROWS_B=14;
+function bounds(c){ if(c<4)return[2,11]; if(c<7)return[3,10]; if(c<11)return[5,9]; if(c<15)return[6,8]; if(c<19)return[5,9]; if(c<22)return[3,10]; return[2,11]; }
+function isLand(c,r){ if(c<0||c>=COLS||r<0||r>=ROWS)return true; var b=bounds(c); if(r<b[0]||r>b[1])return true; for(var i=0;i<ISLANDS.length;i++)if(ISLANDS[i][0]===c&&ISLANDS[i][1]===r)return true; return false; }
+function cx(c){return (c-COLS/2)*CELL+CELL/2;} function cz(r){return (r-ROWS/2)*CELL+CELL/2;}
+function colAt(x){return Math.floor((x-CELL/2)/CELL+COLS/2+0.5);} function rowAt(z){return Math.floor((z-CELL/2)/CELL+ROWS/2+0.5);}
+function landAtWorld(x,z){return isLand(colAt(x),rowAt(z));}
+function hullBlocked(px,pz,fx,fz){return landAtWorld(px,pz)||landAtWorld(px+fx*4.5,pz+fz*4.5)||landAtWorld(px-fx*4.5,pz-fz*4.5);}
+var WEST_X=cx(1), EAST_X=cx(COLS-2), DRUMS_NEEDED=6, WORLD_W=COLS*CELL, WORLD_H=ROWS*CELL;
+function makeLane(){ var lane={},r=7,c,prev; for(c=0;c<COLS;c++){ prev=r; var b=bounds(c); if(r<b[0])r=b[0]; if(r>b[1])r=b[1]; if(c>1&&c<COLS-2&&Math.random()<0.4){var dr=Math.random()<0.5?-1:1;if(!isLand(c,r+dr))r+=dr;} if(isLand(c,r)){if(!isLand(c,r-1))r--;else if(!isLand(c,r+1))r++;} var lo=Math.min(prev,r),hi=Math.max(prev,r); for(var k=lo;k<=hi;k++)if(!isLand(c,k))lane[c+","+k]=true; lane["row"+c]=r; } return lane; }
+
+// ================= audio (synthesized, no files) =================
+var AC=null,master,engOsc,engFilt,engGain,rushGain,muted=false;
+function audioInit(){
+  if(AC){ if(AC.state==="suspended")AC.resume(); return; }
+  try{ AC=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){ return; }
+  master=AC.createGain(); master.gain.value=0.75; master.connect(AC.destination);
+  engOsc=AC.createOscillator(); engOsc.type="sawtooth"; engOsc.frequency.value=42;
+  engFilt=AC.createBiquadFilter(); engFilt.type="lowpass"; engFilt.frequency.value=200;
+  engGain=AC.createGain(); engGain.gain.value=0;
+  engOsc.connect(engFilt); engFilt.connect(engGain); engGain.connect(master); engOsc.start();
+  var rush=AC.createBufferSource(); rush.buffer=noiseBuf(2); rush.loop=true;
+  var rf=AC.createBiquadFilter(); rf.type="bandpass"; rf.frequency.value=900; rf.Q.value=0.5;
+  rushGain=AC.createGain(); rushGain.gain.value=0; rush.connect(rf); rf.connect(rushGain); rushGain.connect(master); rush.start();
+}
+function noiseBuf(sec){ var b=AC.createBuffer(1,Math.floor(AC.sampleRate*sec),AC.sampleRate),d=b.getChannelData(0); for(var i=0;i<d.length;i++)d[i]=Math.random()*2-1; return b; }
+function engineUpdate(frac){ if(!AC)return; var t=AC.currentTime; engOsc.frequency.setTargetAtTime(42+frac*70,t,0.12); engFilt.frequency.setTargetAtTime(180+frac*520,t,0.12); engGain.gain.setTargetAtTime(muted?0:0.10+frac*0.14,t,0.12); rushGain.gain.setTargetAtTime(muted?0:frac*0.16,t,0.15); }
+function nz(dur,f0,f1,vol,type){ if(!AC||muted)return; var s=AC.createBufferSource(); s.buffer=noiseBuf(dur); var f=AC.createBiquadFilter(); f.type=type||"lowpass"; f.frequency.setValueAtTime(f0,AC.currentTime); f.frequency.exponentialRampToValueAtTime(Math.max(30,f1),AC.currentTime+dur); var g=AC.createGain(); g.gain.setValueAtTime(vol,AC.currentTime); g.gain.exponentialRampToValueAtTime(0.001,AC.currentTime+dur); s.connect(f); f.connect(g); g.connect(master); s.start(); s.stop(AC.currentTime+dur); }
+function tone(f0,f1,dur,vol,type){ if(!AC||muted)return; var o=AC.createOscillator(); o.type=type||"sine"; o.frequency.setValueAtTime(f0,AC.currentTime); o.frequency.exponentialRampToValueAtTime(Math.max(20,f1),AC.currentTime+dur); var g=AC.createGain(); g.gain.setValueAtTime(vol,AC.currentTime); g.gain.exponentialRampToValueAtTime(0.001,AC.currentTime+dur); o.connect(g); g.connect(master); o.start(); o.stop(AC.currentTime+dur); }
+var sfx={
+  gun:function(){ nz(0.12,3200,400,0.32); tone(170,55,0.08,0.22,"square"); },
+  boom:function(size){ var d=0.3+Math.min(size,16)*0.045; nz(d,900,55,Math.min(0.75,0.25+size*0.04)); if(size>3) tone(85,28,d,0.45,"sine"); },
+  hit:function(){ nz(0.55,700,45,0.75); tone(60,22,0.55,0.6,"sine"); },
+  pickup:function(){ tone(520,780,0.12,0.18); setTimeout(function(){tone(780,1040,0.14,0.18);},90); },
+  repair:function(){ tone(330,660,0.35,0.2,"triangle"); setTimeout(function(){tone(660,990,0.3,0.16,"triangle");},160); },
+  alarm:function(){ [0,190,380].forEach(function(t,i){ setTimeout(function(){tone(i===1?640:880,i===1?640:880,0.15,0.16,"square");},t); }); },
+  whistle:function(dur){ tone(1600,260,dur,0.11,"sine"); },
+  jam:function(){ nz(0.3,220,80,0.3); tone(120,38,0.3,0.2,"square"); },
+  gate:function(){ [330,415,494].forEach(function(f,i){ setTimeout(function(){tone(f,f,i===2?0.8:0.5,0.14,"triangle");},i*120); }); },
+  smoke:function(){ nz(0.9,1400,250,0.25,"bandpass"); },
+  turn:function(){ [494,415,330,415].forEach(function(f,i){ setTimeout(function(){tone(f,f,0.4,0.13,"triangle");},i*150); }); }
+};
+
+// ================= renderer =================
+var HORIZON=0xc8c6b6, ZENITH=0x2a6483;
+var scene=new THREE.Scene(); scene.fog=new THREE.Fog(HORIZON,95,240);
+var camera=new THREE.PerspectiveCamera(56,window.innerWidth/window.innerHeight,0.5,900);
+var renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio,2)); renderer.setSize(window.innerWidth,window.innerHeight);
+renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.outputEncoding=THREE.sRGBEncoding; renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=1.05;
+document.getElementById("app").appendChild(renderer.domElement);
+scene.add(new THREE.HemisphereLight(0xd8e6ee,0x2b4a55,0.55));
+var sun=new THREE.DirectionalLight(0xfff0d6,1.35); sun.position.set(-70,80,55); sun.castShadow=true; sun.shadow.mapSize.set(2048,2048);
+sun.shadow.camera.left=-110;sun.shadow.camera.right=110;sun.shadow.camera.top=80;sun.shadow.camera.bottom=-80;sun.shadow.camera.near=10;sun.shadow.camera.far=260;sun.shadow.bias=-0.0006; scene.add(sun);
+var sky=new THREE.Mesh(new THREE.SphereGeometry(420,20,10),new THREE.ShaderMaterial({side:THREE.BackSide,depthWrite:false,fog:false,
+  uniforms:{top:{value:new THREE.Color(ZENITH)},bot:{value:new THREE.Color(HORIZON)},sunDir:{value:sun.position.clone().normalize()}},
+  vertexShader:"varying vec3 vW; void main(){ vW=normalize(position); gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }",
+  fragmentShader:"uniform vec3 top; uniform vec3 bot; uniform vec3 sunDir; varying vec3 vW; void main(){ float h=max(vW.y,0.0); vec3 c=mix(bot,top,pow(h,0.5)); float s=pow(max(dot(normalize(vW),sunDir),0.0),180.0); c+=vec3(1.0,0.93,0.78)*s*0.9; float g=pow(max(dot(normalize(vW),sunDir),0.0),6.0); c+=vec3(0.9,0.7,0.45)*g*0.12; gl_FragColor=vec4(c,1.0); }"}));
+scene.add(sky);
+var waterGeo=new THREE.PlaneGeometry(WORLD_W+160,WORLD_H+160,110,60); waterGeo.rotateX(-Math.PI/2);
+var water=new THREE.Mesh(waterGeo,new THREE.MeshPhongMaterial({color:0x14657a,specular:0xb8dde8,shininess:70,transparent:true,opacity:0.93})); water.receiveShadow=true; scene.add(water);
+var waterBase=waterGeo.attributes.position.array.slice();
+
+// terrain
+function landVis(c,r){if(c<0){var k=-c;return r<2-k||r>11+k;}if(c>=COLS){var k2=c-COLS+1;return r<2-k2||r>11+k2;}return isLand(c,r);}
+function hash(x,y){var n=Math.sin(x*127.1+y*311.7)*43758.5453;return n-Math.floor(n);}
+function vnoise(x,y){var ix=Math.floor(x),iy=Math.floor(y),fx=x-ix,fy=y-iy;fx=fx*fx*(3-2*fx);fy=fy*fy*(3-2*fy);var a=hash(ix,iy),b=hash(ix+1,iy),c=hash(ix,iy+1),d=hash(ix+1,iy+1);return (a+(b-a)*fx+(c-a)*fy+(a-b-c+d)*fx*fy)*2-1;}
+function fbm(x,y){return vnoise(x,y)*0.55+vnoise(x*2.1+7,y*2.1+3)*0.28+vnoise(x*4.3+11,y*4.3+9)*0.17;}
+function distToWater(x,z){var c0=Math.floor((x-CELL/2)/CELL+COLS/2+0.5),r0=Math.floor((z-CELL/2)/CELL+ROWS/2+0.5),best=CELL*4,c,r;for(c=c0-4;c<=c0+4;c++)for(r=r0-4;r<=r0+4;r++){if(landVis(c,r))continue;var wx=(c-COLS/2)*CELL+CELL/2,wz=(r-ROWS/2)*CELL+CELL/2,ax=Math.abs(x-wx)-CELL/2,az=Math.abs(z-wz)-CELL/2,d;if(ax<=0&&az<=0)d=Math.max(ax,az);else d=Math.sqrt(Math.max(ax,0)*Math.max(ax,0)+Math.max(az,0)*Math.max(az,0));if(d<best)best=d;}return best;}
+function terrainHeight(x,z){var d=distToWater(x,z);if(d<0.9)return -2.4+Math.max(d,-3)*0.4;var t=Math.min(1,(d-0.9)/13),s=t*t*(3-2*t),ridge=1-Math.abs(fbm(x*0.045,z*0.045));return s*13+ridge*ridge*9*s+fbm(x*0.16,z*0.16)*2.2*s+Math.max(0,d-14)*0.45;}
+(function(){var geo=new THREE.PlaneGeometry(WORLD_W+160,WORLD_H+160,150,90);geo.rotateX(-Math.PI/2);var pos=geo.attributes.position,n=pos.count,colors=new Float32Array(n*3),i;var sand=new THREE.Color(0xd8c59b).convertSRGBToLinear(),ochre=new THREE.Color(0xc39d68).convertSRGBToLinear(),rust=new THREE.Color(0x9a7451).convertSRGBToLinear(),rock=new THREE.Color(0x6f6357).convertSRGBToLinear(),cap=new THREE.Color(0x8d877b).convertSRGBToLinear(),seabed=new THREE.Color(0x2b5f5f).convertSRGBToLinear(),tmp=new THREE.Color();for(i=0;i<n;i++){var x=pos.getX(i),z=pos.getZ(i),h=terrainHeight(x,z);pos.setY(i,h);var v=fbm(x*0.3+50,z*0.3+50)*0.06;if(h<-0.5)tmp.copy(seabed);else if(h<1.2)tmp.copy(sand);else if(h<6)tmp.copy(sand).lerp(ochre,(h-1.2)/4.8);else if(h<13)tmp.copy(ochre).lerp(rust,(h-6)/7);else if(h<20)tmp.copy(rust).lerp(rock,(h-13)/7);else tmp.copy(rock).lerp(cap,Math.min(1,(h-20)/10));tmp.offsetHSL(0,0,v);colors[i*3]=tmp.r;colors[i*3+1]=tmp.g;colors[i*3+2]=tmp.b;}geo.setAttribute("color",new THREE.BufferAttribute(colors,3));geo.computeVertexNormals();var land=new THREE.Mesh(geo,new THREE.MeshStandardMaterial({vertexColors:true,roughness:0.96,flatShading:true}));land.castShadow=true;land.receiveShadow=true;scene.add(land);})();
+
+// gates — east and west
+var gateOn=0xc21e7a,gateOnE=0x8a1456,gateOff=0x6b2148,gateOffE=0x2a0b1c;
+var gateEastMat=new THREE.MeshStandardMaterial({color:gateOff,emissive:gateOffE,roughness:0.5}),gateWestMat=gateEastMat.clone();
+function pillar(mat,x,z){var m=new THREE.Mesh(new THREE.CylinderGeometry(1.1,1.4,14,10),mat);m.position.set(x,5,z);m.castShadow=true;scene.add(m);}
+pillar(gateEastMat,EAST_X+3,cz(5));pillar(gateEastMat,EAST_X+3,cz(10));pillar(gateWestMat,WEST_X-3,cz(5));pillar(gateWestMat,WEST_X-3,cz(10));
+function setGate(mat,on){mat.color.setHex(on?gateOn:gateOff);mat.emissive.setHex(on?gateOnE:gateOffE);}
+function shadowed(g){g.traverse(function(o){if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});return g;}
+
+// ================= tanker + gun =================
+var ship=new THREE.Group(),turret=new THREE.Group();
+(function(){var red=new THREE.MeshStandardMaterial({color:0x9a2f24,roughness:0.75}),dark=new THREE.MeshStandardMaterial({color:0x2a3338,roughness:0.85}),cream=new THREE.MeshStandardMaterial({color:0xe8e1cf,roughness:0.7}),pipe=new THREE.MeshStandardMaterial({color:0x6d7a82,roughness:0.6,metalness:0.4}),gunMat=new THREE.MeshStandardMaterial({color:0x3d474d,roughness:0.5,metalness:0.5});
+function box(w,h,d,mat,x,y,z,parent){var m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);m.position.set(x,y,z);(parent||ship).add(m);return m;}
+box(3.2,1.8,9.5,red,0,0.5,0);box(3.0,0.5,8.6,dark,0,1.5,0);box(2.6,0.35,5.4,red,0,1.9,0.6);box(2.4,2.2,2.0,cream,0,2.7,-3.2);box(3.4,0.7,1.2,cream,0,3.9,-2.8);box(0.9,1.1,1.4,dark,0,4.7,-3.3);box(2.2,0.8,1.6,cream,0,2.3,4.2);
+var stack=new THREE.Mesh(new THREE.CylinderGeometry(0.42,0.5,1.6,10),dark);stack.position.set(0,5.4,-3.6);ship.add(stack);
+var mast=new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.1,3.4,6),pipe);mast.position.set(0,6.6,-3.0);ship.add(mast);
+for(var i=-1;i<=1;i++){var p=new THREE.Mesh(new THREE.CylinderGeometry(0.11,0.11,5.2,8),pipe);p.rotation.x=Math.PI/2;p.position.set(i*0.75,2.16,0.6);ship.add(p);}
+var bow=new THREE.Mesh(new THREE.ConeGeometry(1.6,2.6,4),red);bow.rotation.x=Math.PI/2;bow.rotation.y=Math.PI/4;bow.position.set(0,0.5,5.6);ship.add(bow);
+turret.add(new THREE.Mesh(new THREE.CylinderGeometry(0.75,0.85,0.5,10),gunMat));box(1.1,0.7,1.3,gunMat,0,0.55,0,turret);box(0.16,0.16,2.6,gunMat,0,0.65,1.5,turret);turret.position.set(0,2.7,4.2);ship.add(turret);})();
+shadowed(ship);scene.add(ship);
+
+// pools
+var foam=[],foamMat=new THREE.MeshBasicMaterial({color:0xe8f4f8,transparent:true,opacity:0.5,depthWrite:false});
+for(var fi=0;fi<48;fi++){var fm=new THREE.Mesh(new THREE.PlaneGeometry(1,1),foamMat.clone());fm.rotation.x=-Math.PI/2;fm.visible=false;scene.add(fm);foam.push({mesh:fm,life:0});}
+var foamClock=0;
+function dropFoam(x,z,st){for(var i=0;i<foam.length;i++){if(foam[i].life<=0){var f=foam[i];f.life=1.4;f.strength=st;f.mesh.position.set(x,0.42,z);f.mesh.scale.set(1,1,1);f.mesh.rotation.z=Math.random()*6.28;f.mesh.visible=true;return;}}}
+var booms=[],boomGeo=new THREE.SphereGeometry(1,12,10),ringGeo=new THREE.RingGeometry(0.7,1,24);
+function boom(x,z,size,color){var fire=new THREE.Mesh(boomGeo,new THREE.MeshBasicMaterial({color:color||0xffb347,transparent:true,opacity:0.95,blending:THREE.AdditiveBlending,depthWrite:false}));fire.position.set(x,1.4,z);var ring=new THREE.Mesh(ringGeo,new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.8,side:THREE.DoubleSide,depthWrite:false}));ring.rotation.x=-Math.PI/2;ring.position.set(x,0.45,z);scene.add(fire,ring);booms.push({fire:fire,ring:ring,t:0,size:size||8});sfx.boom(size||8);}
+var jolt=0;
+var puffs=[],trailMat=new THREE.SpriteMaterial({color:0xffffff,transparent:true,opacity:0.5,depthWrite:false});
+for(var pi=0;pi<260;pi++){var sp=new THREE.Sprite(trailMat.clone());sp.visible=false;scene.add(sp);puffs.push({s:sp,life:0,max:2.6,rise:0,kind:0,vx:0,vz:0});}
+// kind: 0 contrail, 1 damage smoke, 2 smoke screen
+function puff(x,y,z,kind,vx,vz){for(var i=0;i<puffs.length;i++){if(puffs[i].life<=0){var p=puffs[i];p.kind=kind||0;p.max=kind===1?2.2:(kind===2?6.5:2.6);p.life=p.max;p.rise=kind===1?2.2:(kind===2?0.35:0);p.vx=vx||0;p.vz=vz||0;p.s.material.color.setHex(kind===1?0x2a2a2a:(kind===2?0xd9dde0:0xffffff));p.s.position.set(x,y,z);p.s.scale.set(kind===2?5:1.2,kind===2?5:1.2,1);p.s.visible=true;return;}}}
+var shells=[],shellGeo=new THREE.SphereGeometry(0.22,6,6),shellMat=new THREE.MeshBasicMaterial({color:0xfff1a8}),tracerMat=new THREE.MeshBasicMaterial({color:0xffb347,transparent:true,opacity:0.7});
+var arcs=[],markerGeo=new THREE.RingGeometry(2.6,3.4,28),markerMat=new THREE.MeshBasicMaterial({color:0xff4d3a,transparent:true,opacity:0.7,side:THREE.DoubleSide,depthWrite:false}),arcGeo=new THREE.SphereGeometry(0.42,7,7),arcMat=new THREE.MeshBasicMaterial({color:0x222222});
+
+// jets
+var jets=[],jetMat=new THREE.MeshStandardMaterial({color:0x5f6b73,roughness:0.5,metalness:0.5});
+function makeJet(){var g=new THREE.Group();var body=new THREE.Mesh(new THREE.ConeGeometry(0.55,5.5,7),jetMat);body.rotation.x=Math.PI/2;g.add(body);var wing=new THREE.Mesh(new THREE.BoxGeometry(6.2,0.12,2.0),jetMat);wing.position.z=-0.9;g.add(wing);var tail=new THREE.Mesh(new THREE.BoxGeometry(0.12,1.5,1.3),jetMat);tail.position.set(0,0.7,-2.1);g.add(tail);var hst=new THREE.Mesh(new THREE.BoxGeometry(2.4,0.1,0.9),jetMat);hst.position.set(0,0.1,-2.3);g.add(hst);g.traverse(function(o){if(o.isMesh)o.castShadow=true;});return g;}
+function launchJet(j){var side=Math.floor(Math.random()*4),ex=WORLD_W/2+70,ez=WORLD_H/2+70;if(side===0){j.mesh.position.set(-ex,0,(Math.random()-0.5)*WORLD_H);j.heading=Math.PI/2+(Math.random()-0.5)*0.5;}else if(side===1){j.mesh.position.set(ex,0,(Math.random()-0.5)*WORLD_H);j.heading=-Math.PI/2+(Math.random()-0.5)*0.5;}else if(side===2){j.mesh.position.set((Math.random()-0.5)*WORLD_W,0,-ez);j.heading=(Math.random()-0.5)*0.5;}else{j.mesh.position.set((Math.random()-0.5)*WORLD_W,0,ez);j.heading=Math.PI+(Math.random()-0.5)*0.5;}j.alt=24+Math.random()*24;j.mesh.position.y=j.alt;j.speed=48+Math.random()*22;j.bank=(Math.random()-0.5)*0.5;j.trail=0;j.mode="cruise";j.strafe=0;}
+for(var ji=0;ji<3;ji++){var jm=makeJet();scene.add(jm);var jj={mesh:jm,heading:0,speed:0,alt:30,bank:0,trail:0,mode:"cruise",strafe:0};launchJet(jj);jj.mesh.position.x+=(Math.random()-0.5)*200;jets.push(jj);}
+var strafeClock=16;
+
+// ================= entities =================
+var drums=[],repairs=[],mines=[],craft=[],batteries=[],lane={};
+var drumGeo=new THREE.CylinderGeometry(1.05,1.05,2.4,14),drumMat=new THREE.MeshStandardMaterial({color:0xe0952a,roughness:0.55,metalness:0.2}),drumBand=new THREE.MeshStandardMaterial({color:0x2b2b2b,roughness:0.7}),beaconMat=new THREE.MeshBasicMaterial({color:0xffb347,transparent:true,opacity:0.3,depthWrite:false});
+var repMat=new THREE.MeshStandardMaterial({color:0xf0ede4,roughness:0.55}),repBand=new THREE.MeshStandardMaterial({color:0xd8352a,roughness:0.6}),repBeacon=new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.3,depthWrite:false});
+var mineMat=new THREE.MeshStandardMaterial({color:0x171d21,roughness:0.6,metalness:0.3}),spikeMat=new THREE.MeshStandardMaterial({color:0x3a4349,roughness:0.7});
+var craftMat=new THREE.MeshStandardMaterial({color:0x53626b,roughness:0.7}),craftDark=new THREE.MeshStandardMaterial({color:0x2b343a,roughness:0.8});
+var batMat=new THREE.MeshStandardMaterial({color:0x7a6a55,roughness:0.9}),batGun=new THREE.MeshStandardMaterial({color:0x3d474d,roughness:0.5,metalness:0.5});
+function makeDrum(x,z,rep){var g=new THREE.Group();var m=new THREE.Mesh(drumGeo,rep?repMat:drumMat);m.rotation.z=Math.PI/2;g.add(m);var b1=new THREE.Mesh(new THREE.CylinderGeometry(1.09,1.09,rep?0.5:0.18,14),rep?repBand:drumBand);b1.rotation.z=Math.PI/2;b1.position.x=0.7;g.add(b1);var b2=b1.clone();b2.position.x=-0.7;g.add(b2);var beacon=new THREE.Mesh(new THREE.BoxGeometry(0.22,9,0.22),rep?repBeacon:beaconMat);beacon.position.y=5;g.add(beacon);g.position.set(x,0.9,z);shadowed(g);beacon.castShadow=false;return g;}
+function makeMine(x,z){var g=new THREE.Group();g.add(new THREE.Mesh(new THREE.SphereGeometry(1.25,14,12),mineMat));for(var s=0;s<6;s++){var sp=new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.2,1.2,5),spikeMat);var a=s/6*Math.PI*2;sp.position.set(Math.cos(a)*1.2,0.85,Math.sin(a)*1.2);sp.rotation.z=-Math.cos(a)*0.75;sp.rotation.x=Math.sin(a)*0.75;g.add(sp);}g.position.set(x,0.7,z);shadowed(g);return g;}
+function makeCraft(x,z){var g=new THREE.Group();var h=new THREE.Mesh(new THREE.BoxGeometry(1.5,0.9,4.2),craftMat);h.position.y=0.4;g.add(h);var t=new THREE.Mesh(new THREE.BoxGeometry(1.1,0.7,1.2),craftDark);t.position.set(0,1.1,-0.6);g.add(t);var gun=new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.07,1.4,6),craftDark);gun.rotation.x=Math.PI/2;gun.position.set(0,1.0,1.6);g.add(gun);var nose=new THREE.Mesh(new THREE.ConeGeometry(0.75,1.4,4),craftMat);nose.rotation.x=Math.PI/2;nose.rotation.y=Math.PI/4;nose.position.set(0,0.4,2.8);g.add(nose);g.position.set(x,0.3,z);shadowed(g);return g;}
+function makeBattery(x,z){var g=new THREE.Group(),y=terrainHeight(x,z);var plinth=new THREE.Mesh(new THREE.CylinderGeometry(2.4,2.8,1.6,12),batMat);plinth.position.y=0.8;g.add(plinth);var wall=new THREE.Mesh(new THREE.CylinderGeometry(2.5,2.5,0.9,12,1,true),batMat);wall.position.y=2.0;g.add(wall);var mount=new THREE.Group();var m=new THREE.Mesh(new THREE.BoxGeometry(1.6,1.0,1.8),batGun);m.position.y=0.5;mount.add(m);var tube=new THREE.Mesh(new THREE.BoxGeometry(0.28,0.28,4.2),batGun);tube.position.set(0,0.7,2.2);tube.rotation.x=-0.28;mount.add(tube);mount.position.y=1.8;g.add(mount);g.position.set(x,y,z);shadowed(g);return {mesh:g,mount:mount};}
+function spawnCraftAt(c,r){var m=makeCraft(cx(c),cz(r));scene.add(m);craft.push({mesh:m,heading:Math.random()*6.28,speed:0,cool:0,dead:false,mode:"patrol",timer:0,hp:2,blind:0});}
+
+function spawnWorld(){
+  var i;
+  [drums,repairs,mines,craft,batteries].forEach(function(arr){arr.forEach(function(e){scene.remove(e.mesh);});});
+  shells.forEach(function(s){scene.remove(s.mesh);scene.remove(s.trail);});arcs.forEach(function(a){scene.remove(a.mesh);scene.remove(a.marker);});
+  drums=[];repairs=[];mines=[];craft=[];batteries=[];shells=[];arcs=[];lane=makeLane();
+  var cells=[],c,r;for(c=2;c<COLS-2;c++)for(r=0;r<ROWS;r++)if(!isLand(c,r))cells.push([c,r]);
+  function onLane(p){return !!lane[p[0]+","+p[1]];}function offLane(p){return !lane[p[0]+","+p[1]];}
+  function besideLane(p){return offLane(p)&&(lane[p[0]+","+(p[1]-1)]||lane[p[0]+","+(p[1]+1)]);}function inNarrows(p){return p[0]>=NARROWS_A&&p[0]<=NARROWS_B;}
+  function take(pred){var pool=cells.filter(pred);if(!pool.length)return null;var p=pool[Math.floor(Math.random()*pool.length)];cells.splice(cells.indexOf(p),1);return p;}
+  var bands=[[3,7],[8,10],[11,14],[15,18],[19,22]];
+  for(i=0;i<bands.length;i++){var lo=bands[i][0],hi=bands[i][1];var p=take(function(q){return onLane(q)&&q[0]>=lo&&q[0]<=hi;});if(p){var m=makeDrum(cx(p[0]),cz(p[1]));scene.add(m);drums.push({mesh:m,taken:false,phase:Math.random()*6.28});}}
+  for(i=0;i<3;i++){var p2=take(function(q){return besideLane(q)&&!inNarrows(q)&&q[0]>=4&&q[0]<=21;});if(p2){var m2=makeDrum(cx(p2[0]),cz(p2[1]));scene.add(m2);drums.push({mesh:m2,taken:false,phase:Math.random()*6.28});}}
+  var pr=take(function(q){return besideLane(q)&&!inNarrows(q)&&q[0]>=6&&q[0]<=20;});if(pr){var rm=makeDrum(cx(pr[0]),cz(pr[1]),true);scene.add(rm);repairs.push({mesh:rm,taken:false,phase:Math.random()*6.28});}
+  for(c=NARROWS_A;c<=NARROWS_B;c++){var col=c;var p3=take(function(q){return q[0]===col&&offLane(q);});if(p3){var m3=makeMine(cx(p3[0]),cz(p3[1]));scene.add(m3);mines.push({mesh:m3,live:true,phase:Math.random()*6.28});}}
+  function field(lo,hi,n){for(var k=0;k<n;k++){var p=take(function(q){return offLane(q)&&q[0]>=lo&&q[0]<=hi;});if(!p)return;var m=makeMine(cx(p[0])+(Math.random()-0.5)*2.2,cz(p[1])+(Math.random()-0.5)*2.2);scene.add(m);mines.push({mesh:m,live:true,phase:Math.random()*6.28});}}
+  field(5,10,5);field(15,21,5);
+  for(i=0;i<3;i++){var p4=take(function(q){return q[0]>=15&&q[0]<=22;});if(!p4)break;spawnCraftAt(p4[0],p4[1]);}
+  [[12,5],[13,9]].forEach(function(bp){var b=makeBattery(cx(bp[0]),cz(bp[1]));scene.add(b.mesh);batteries.push({mesh:b.mesh,mount:b.mount,hp:4,dead:false,cool:2+Math.random()*2});});
+}
+
+// ================= state =================
+var S={phase:"brief",leg:1,drums:0,hull:3,speed:0,invuln:0,t:0,score:0,kills:0,batsKilled:0,heat:0,jammed:false,fireCool:0,reinforce:0,dmgSmoke:0,smokeCharges:3,smokeUntil:0,smokeKey:false};
+var keys={},touch={left:false,right:false,fwd:false,rev:false,fire:false,smoke:false};
+var MAXSPD=17,ACC=14,DRAG=4.5,TURN=2.1;
+var MINE_R=2.8,DRUM_R=5.2,CRAFT_R=4.4,CRAFT_MINE_R=2.7,GUN_RANGE=58;
+function effMax(){return MAXSPD*(1-0.028*S.drums);}
+function effTurn(){return TURN*(1-0.03*S.drums);}
+
+function resetRun(){
+  S.leg=1;S.drums=0;S.hull=3;S.speed=0;S.invuln=0;S.t=0;S.score=0;S.kills=0;S.batsKilled=0;S.heat=0;S.jammed=false;S.fireCool=0;S.reinforce=0;S.smokeCharges=3;S.smokeUntil=0;chain=[];minesCleared=0;
+  setGate(gateEastMat,false);setGate(gateWestMat,false);
+  spawnWorld();strafeClock=16;
+  ship.position.set(WEST_X,0,cz(lane["row"+1]));ship.rotation.y=Math.PI/2;
+  S.phase="run";
+  guide("Head east. Load six drums, turn at the eastern gate, and bring her back west. Hold <b>Space</b> to fire, <b>E</b> for smoke. The chart shows every mine — there is always a clean line through.");
+  syncHud();
+}
+function addScore(n){S.score+=n;syncHud();}
+var el={drums:document.getElementById("hud-drums"),hull:document.getElementById("hud-hull"),speed:document.getElementById("hud-speed"),guide:document.getElementById("guide"),heat:document.getElementById("hud-heat"),score:document.getElementById("hud-score"),smoke:document.getElementById("hud-smoke"),leg:document.getElementById("hud-leg"),snd:document.getElementById("hud-snd")};
+function guide(t,warn){el.guide.innerHTML=t;el.guide.className=warn?"warn":"";}
+function syncHud(){el.drums.textContent=S.drums;var out="";for(var i=0;i<3;i++)out+='<i class="'+(i<S.hull?"":"gone")+'"></i>';el.hull.innerHTML=out;el.speed.textContent=Math.round(Math.abs(S.speed)*1.2);el.heat.style.width=Math.min(100,S.heat*100)+"%";el.heat.className=S.jammed?"hot":"";el.score.textContent=S.score;var sm="";for(i=0;i<3;i++)sm+='<i class="'+(i<S.smokeCharges?"":"gone")+'"></i>';el.smoke.innerHTML=sm;el.leg.textContent=S.leg===1?"Outbound · east":"Return · west";el.snd.textContent=muted?"Sound off · M":"Sound on · M";}
+var veil=document.getElementById("veil"),card=document.getElementById("card");
+function showCard(h){card.innerHTML=h;veil.classList.remove("hide");}
+function hideCard(){veil.classList.add("hide");}
+function brief(){S.phase="brief";
+  showCard('<h1>Hormuz Run</h1><p class="lead">Run a loaded tanker east through the Strait of Hormuz, load six drums, turn at the eastern gate — then bring her all the way back.</p><p>Mines through the whole channel, thickest at the narrows, but there is always a line through. Shore batteries shell you as you pass; the red ring is where the round lands. Attack craft make passes and get replaced when you sink them. Jets strafe anything in open water. Every drum aboard makes her slower and harder to turn, so the run home is the hard half.</p><p class="keys"><kbd>W</kbd><kbd>S</kbd> throttle &nbsp; <kbd>A</kbd><kbd>D</kbd> helm &nbsp; <kbd>Space</kbd> fire &nbsp; <kbd>E</kbd> smoke &nbsp; <kbd>M</kbd> sound<br>Smoke breaks any craft off its run at you. Three charges. The white drum patches a compartment. The gun locks onto craft and batteries first, then mines ahead of you — with nothing locked it fires straight over the bow. Shoot a mine and it goes up; close ones chain.</p><button class="go" id="btn-go">Begin the run</button>');
+  document.getElementById("btn-go").addEventListener("click",function(){audioInit();hideCard();resetRun();});}
+function over(win,why){S.phase="over";engineUpdate(0);
+  var time=Math.round(S.t),timeBonus=win?Math.max(0,900-time*3):0,hullBonus=win?S.hull*300:0,total=S.score+timeBonus+hullBonus;
+  var result={wallet:W.addr||"",score:total,drums:S.drums,kills:S.kills,mines:minesCleared,batteries:S.batsKilled,time:time,hull:S.hull,won:win,nonce:Date.now()};
+  showCard('<h2>'+(win?"Home with the cargo":"Run ended")+'</h2><p class="lead">'+why+'</p><div class="score">'+total+'</div><table><tr><td>Drums loaded</td><td>'+S.drums+' × 100</td></tr><tr><td>Attack craft sunk</td><td>'+S.kills+' × 250</td></tr><tr><td>Mines cleared</td><td>'+minesCleared+' × 50</td></tr><tr><td>Batteries silenced</td><td>'+S.batsKilled+' × 400</td></tr>'+(S.leg===2?'<tr><td>Turned at the gate</td><td>+300</td></tr>':'')+(win?'<tr><td>Time ('+time+'s)</td><td>+'+timeBonus+'</td></tr><tr><td>Hull intact</td><td>+'+hullBonus+'</td></tr>':'')+'</table><div id="post"></div><div class="board" id="board"></div><button class="go" id="btn-go">Run it again</button>');
+  document.getElementById("btn-go").addEventListener("click",function(){audioInit();hideCard();resetRun();});
+  renderPost(result); loadBoard();}
+
+// minimap
+var mm=document.getElementById("minimap"),mctx=mm.getContext("2d"),MW=416,MH=224;mm.width=MW;mm.height=MH;
+var sx=MW/WORLD_W,sz=MH/WORLD_H;function mx(x){return (x+WORLD_W/2)*sx;}function mz(z){return (z+WORLD_H/2)*sz;}
+var landLayer=document.createElement("canvas");landLayer.width=MW;landLayer.height=MH;
+(function(){var g=landLayer.getContext("2d");g.fillStyle="#12495b";g.fillRect(0,0,MW,MH);g.fillStyle="#d0bd93";for(var c=0;c<COLS;c++)for(var r=0;r<ROWS;r++)if(isLand(c,r))g.fillRect(c*CELL*sx,r*CELL*sz,CELL*sx+0.6,CELL*sz+0.6);})();
+function tri(x,y,h,s,color){var fx=Math.sin(h),fz=Math.cos(h);mctx.fillStyle=color;mctx.beginPath();mctx.moveTo(x+fx*s,y+fz*s);mctx.lineTo(x-fx*s*0.7-fz*s*0.55,y-fz*s*0.7+fx*s*0.55);mctx.lineTo(x-fx*s*0.7+fz*s*0.55,y-fz*s*0.7-fx*s*0.55);mctx.closePath();mctx.fill();}
+function drawMap(){mctx.drawImage(landLayer,0,0);var i;
+  mctx.fillStyle=(S.leg===1&&S.drums>=DRUMS_NEEDED)?"#c21e7a":"#6b2148";mctx.fillRect(mx(EAST_X+3)-2,mz(cz(5))-3,4,mz(cz(10))-mz(cz(5))+6);
+  mctx.fillStyle=S.leg===2?"#c21e7a":"#6b2148";mctx.fillRect(mx(WEST_X-3)-2,mz(cz(5))-3,4,mz(cz(10))-mz(cz(5))+6);
+  mctx.fillStyle="#0c1216";for(i=0;i<mines.length;i++){if(!mines[i].live)continue;var p=mines[i].mesh.position;mctx.beginPath();mctx.arc(mx(p.x),mz(p.z),4.2,0,6.28);mctx.fill();}
+  mctx.fillStyle="#ffb347";for(i=0;i<drums.length;i++){if(drums[i].taken)continue;var q=drums[i].mesh.position;mctx.save();mctx.translate(mx(q.x),mz(q.z));mctx.rotate(Math.PI/4);mctx.fillRect(-4,-4,8,8);mctx.restore();}
+  mctx.fillStyle="#ffffff";for(i=0;i<repairs.length;i++){if(repairs[i].taken)continue;var rq=repairs[i].mesh.position;mctx.fillRect(mx(rq.x)-1.5,mz(rq.z)-5,3,10);mctx.fillRect(mx(rq.x)-5,mz(rq.z)-1.5,10,3);}
+  for(i=0;i<batteries.length;i++){if(batteries[i].dead)continue;var bb=batteries[i].mesh.position;mctx.fillStyle="#ff4d3a";mctx.fillRect(mx(bb.x)-5,mz(bb.z)-5,10,10);}
+  for(i=0;i<arcs.length;i++){mctx.strokeStyle="#ff4d3a";mctx.lineWidth=2;mctx.beginPath();mctx.arc(mx(arcs[i].tx),mz(arcs[i].tz),6,0,6.28);mctx.stroke();}
+  for(i=0;i<craft.length;i++){if(craft[i].dead)continue;var f=craft[i];tri(mx(f.mesh.position.x),mz(f.mesh.position.z),f.heading,6,f.mode==="chase"?"#e9e3d3":"#8fa6ba");}
+  tri(mx(ship.position.x),mz(ship.position.z),ship.rotation.y,9,"#ff5f4d");}
+
+// input
+window.addEventListener("keydown",function(e){var k=e.key.toLowerCase();keys[k]=true;if(["arrowup","arrowdown","arrowleft","arrowright"," "].indexOf(k)>=0)e.preventDefault();if(k==="m"){muted=!muted;syncHud();}});
+window.addEventListener("keyup",function(e){keys[e.key.toLowerCase()]=false;});
+window.addEventListener("mousedown",function(e){if(e.target.tagName!=="BUTTON")touch.fire=true;});
+window.addEventListener("mouseup",function(){touch.fire=false;});
+function bindTouch(id,prop){var eln=document.getElementById(id);["touchstart","mousedown"].forEach(function(ev){eln.addEventListener(ev,function(e){e.preventDefault();e.stopPropagation();touch[prop]=true;});});["touchend","touchcancel","mouseup","mouseleave"].forEach(function(ev){eln.addEventListener(ev,function(){touch[prop]=false;});});}
+bindTouch("t-left","left");bindTouch("t-right","right");bindTouch("t-fwd","fwd");bindTouch("t-rev","rev");bindTouch("t-fire","fire");bindTouch("t-smoke","smoke");
+window.addEventListener("resize",function(){camera.aspect=window.innerWidth/window.innerHeight;camera.updateProjectionMatrix();renderer.setSize(window.innerWidth,window.innerHeight);});
+
+function hit(msg){if(S.invuln>0)return;S.hull--;S.invuln=1.6;S.speed*=0.35;jolt=1;sfx.hit();syncHud();
+  if(S.hull<=0){boom(ship.position.x,ship.position.z,16);over(false,msg+" The tanker went down in the channel.");return;}
+  guide("<b>"+msg+"</b> "+S.hull+" of three compartments holding. One more like that and she goes down.",true);}
+function coastDistance(){return -distToWater(ship.position.x,ship.position.z);}
+var chain=[],minesCleared=0;
+function detonateMine(idx,byShell){
+  var m=mines[idx];if(!m||!m.live)return;
+  m.live=false;scene.remove(m.mesh);var p=m.mesh.position;
+  boom(p.x,p.z,9);addScore(50);minesCleared++;
+  var k;
+  for(k=0;k<craft.length;k++){var c=craft[k];if(c.dead)continue;if(c.mesh.position.distanceTo(p)<4){c.dead=true;scene.remove(c.mesh);boom(c.mesh.position.x,c.mesh.position.z,8);S.kills++;addScore(250);}}
+  for(k=0;k<mines.length;k++){if(!mines[k].live||k===idx)continue;if(mines[k].mesh.position.distanceTo(p)<6.5){var queued=false;for(var q=0;q<chain.length;q++)if(chain[q].idx===k)queued=true;if(!queued)chain.push({idx:k,t:0.14+Math.random()*0.1});}}
+  if(p.distanceTo(ship.position)<5.2){hit("Blew a mine right under the bow.");return;}
+  if(byShell){if(minesCleared===1)guide("<b>Mine cleared.</b> Fifty points each, and they chain if they are close together — just not from point blank.");else if(minesCleared%4===0)guide("Mine cleared. That is "+minesCleared+" this run.");}
+}
+
+// ================= loop =================
+var clock=new THREE.Clock();
+function step(dt){
+  if(S.phase!=="run")return;
+  S.t+=dt;
+  var turning=0;if(keys.a||keys.arrowleft||touch.left)turning+=1;if(keys.d||keys.arrowright||touch.right)turning-=1;
+  var authority=0.4+0.6*Math.min(1,Math.abs(S.speed)/(MAXSPD*0.3));
+  ship.rotation.y+=turning*effTurn()*authority*dt*(S.speed<0?-1:1);
+  var ahead=keys.w||keys.arrowup||touch.fwd,astern=keys.s||keys.arrowdown||touch.rev;
+  if(ahead)S.speed+=ACC*dt;else if(astern)S.speed-=(S.speed>0?ACC*1.8:ACC*0.8)*dt;else S.speed-=(S.speed>=0?1:-1)*Math.min(Math.abs(S.speed),DRAG*dt);
+  var mx_=effMax();S.speed=Math.max(-mx_*0.4,Math.min(mx_,S.speed));
+  var fx=Math.sin(ship.rotation.y),fz=Math.cos(ship.rotation.y);
+  var nx=ship.position.x+fx*S.speed*dt,nzz=ship.position.z+fz*S.speed*dt,moved=false,scraping=false;
+  if(!hullBlocked(nx,nzz,fx,fz)){ship.position.x=nx;ship.position.z=nzz;moved=true;}
+  else if(!hullBlocked(nx,ship.position.z,fx,fz)){ship.position.x=nx;moved=true;scraping=true;}
+  else if(!hullBlocked(ship.position.x,nzz,fx,fz)){ship.position.z=nzz;moved=true;scraping=true;}
+  if(!moved){var fast=Math.abs(S.speed)>MAXSPD*0.55;S.speed=0;if(fast)hit("Ran her aground at speed.");else guide("Hard aground, bow in. Back her off with <b>S</b>, then put the helm over.");}
+  else if(scraping){S.speed*=0.93;if(Math.abs(S.speed)>1)guide("Scraping the shore. Ease off and steer back into the channel.");}
+  if(S.invuln>0)S.invuln-=dt;
+  ship.rotation.z+=((-turning*0.07*Math.min(1,Math.abs(S.speed)/MAXSPD))-ship.rotation.z)*dt*4;
+  ship.rotation.x=Math.sin(S.t*1.3)*0.012;ship.position.y=Math.sin(S.t*1.1)*0.12-S.drums*0.03;
+  engineUpdate(Math.abs(S.speed)/MAXSPD);
+  foamClock+=dt;if(Math.abs(S.speed)>2.5&&foamClock>0.07){foamClock=0;dropFoam(ship.position.x-fx*4.6+(Math.random()-0.5)*1.6,ship.position.z-fz*4.6+(Math.random()-0.5)*1.6,Math.abs(S.speed)/MAXSPD);}
+  if(S.hull<3){S.dmgSmoke+=dt;if(S.dmgSmoke>(S.hull===2?0.22:0.09)){S.dmgSmoke=0;puff(ship.position.x-fx*2+(Math.random()-0.5)*1.5,2.6,ship.position.z-fz*2+(Math.random()-0.5)*1.5,1);}}
+
+  // smoke screen
+  var wantSmoke=keys.e||keys.shift||touch.smoke;
+  if(wantSmoke&&!S.smokeKey&&S.smokeCharges>0&&S.t>S.smokeUntil-4){
+    S.smokeCharges--;S.smokeUntil=S.t+6;sfx.smoke();
+    for(var sm=0;sm<16;sm++)puff(ship.position.x-fx*6+(Math.random()-0.5)*9,1.5+Math.random()*2,ship.position.z-fz*6+(Math.random()-0.5)*9,2,(Math.random()-0.5)*1.2-fx*0.6,(Math.random()-0.5)*1.2-fz*0.6);
+    var broke=0;for(var ci=0;ci<craft.length;ci++){var cc=craft[ci];if(cc.dead)continue;if(cc.mode==="chase"&&cc.mesh.position.distanceTo(ship.position)<30){cc.mode="break";cc.timer=0;cc.blind=6;broke++;}}
+    guide(broke?"<b>Smoke laid.</b> "+broke+" craft lost the lock. "+S.smokeCharges+" charge"+(S.smokeCharges===1?"":"s")+" left.":"<b>Smoke laid.</b> Nothing was on you — that one is spent. "+S.smokeCharges+" left.");
+    syncHud();
+  }
+  S.smokeKey=!!wantSmoke;
+
+  var i;
+  // gun
+  var target=null,td=GUN_RANGE;
+  for(i=0;i<craft.length;i++){if(craft[i].dead)continue;var cd=craft[i].mesh.position.distanceTo(ship.position);if(cd<td){td=cd;target=craft[i].mesh;}}
+  for(i=0;i<batteries.length;i++){if(batteries[i].dead)continue;var bd2=batteries[i].mesh.position.distanceTo(ship.position);if(bd2<td){td=bd2;target=batteries[i].mesh;}}
+  // nothing hostile in range — lay onto the nearest mine in the forward arc
+  if(!target){var md=36;for(i=0;i<mines.length;i++){if(!mines[i].live)continue;var mp=mines[i].mesh.position,mdx=mp.x-ship.position.x,mdz=mp.z-ship.position.z,mdist=Math.sqrt(mdx*mdx+mdz*mdz);if(mdist<md&&(mdx*fx+mdz*fz)/Math.max(mdist,0.01)>0.15){md=mdist;target=mines[i].mesh;}}}
+  if(target){var ang=Math.atan2(target.position.x-ship.position.x,target.position.z-ship.position.z)-ship.rotation.y;var cur=turret.rotation.y;var dA=Math.atan2(Math.sin(ang-cur),Math.cos(ang-cur));turret.rotation.y+=dA*Math.min(1,dt*7);}else turret.rotation.y+=(0-turret.rotation.y)*dt*3;
+  S.heat=Math.max(0,S.heat-dt*0.42);if(S.jammed&&S.heat<0.35){S.jammed=false;guide("Gun cooled. Back in action.");}
+  S.fireCool-=dt;
+  if((keys[" "]||touch.fire)&&!S.jammed&&S.fireCool<=0){
+    S.fireCool=0.16;S.heat+=0.11;sfx.gun();
+    if(S.heat>=1){S.jammed=true;sfx.jam();guide("<b>Gun jammed on heat.</b> Nothing until it cools — watch the bar.",true);}
+    var wy=ship.rotation.y+turret.rotation.y,sfx_=Math.sin(wy),sfz=Math.cos(wy);
+    var sh=new THREE.Mesh(shellGeo,shellMat);sh.position.set(ship.position.x+sfx_*5.5,3.4,ship.position.z+sfz*5.5);scene.add(sh);
+    var tr=new THREE.Mesh(new THREE.BoxGeometry(0.08,0.08,2.4),tracerMat);tr.position.copy(sh.position);tr.rotation.y=wy;scene.add(tr);
+    shells.push({mesh:sh,trail:tr,vx:sfx_*75,vz:sfz*75,life:0.9});jolt=Math.max(jolt,0.18);
+  }
+  syncHud();
+  for(i=shells.length-1;i>=0;i--){var s=shells[i];s.life-=dt;s.mesh.position.x+=s.vx*dt;s.mesh.position.z+=s.vz*dt;s.trail.position.copy(s.mesh.position);s.trail.position.y-=0.1;
+    var gone=s.life<=0||landAtWorld(s.mesh.position.x,s.mesh.position.z),k;
+    for(k=0;k<craft.length&&!gone;k++){var cf=craft[k];if(cf.dead)continue;if(cf.mesh.position.distanceTo(s.mesh.position)<2.4){gone=true;cf.hp--;boom(cf.mesh.position.x,cf.mesh.position.z,cf.hp<=0?9:2.5);if(cf.hp<=0){cf.dead=true;scene.remove(cf.mesh);S.kills++;addScore(250);guide("<b>Attack craft sunk.</b> More will come from "+(S.leg===1?"the east":"the west")+".");}}}
+    for(k=0;k<batteries.length&&!gone;k++){var bt=batteries[k];if(bt.dead)continue;var bx=bt.mesh.position.x-s.mesh.position.x,bz=bt.mesh.position.z-s.mesh.position.z;if(bx*bx+bz*bz<3.2*3.2){gone=true;bt.hp--;boom(bt.mesh.position.x,bt.mesh.position.z,bt.hp<=0?12:3);if(bt.hp<=0){bt.dead=true;bt.mount.visible=false;S.batsKilled++;addScore(400);guide("<b>Battery silenced.</b> That headland is quiet now — and it stays quiet for the run home.");}}}
+    for(k=0;k<mines.length&&!gone;k++){if(!mines[k].live)continue;if(mines[k].mesh.position.distanceTo(s.mesh.position)<2.1){gone=true;detonateMine(k,true);}}
+    if(gone){if(s.life<=0)boom(s.mesh.position.x,s.mesh.position.z,1.4,0xffffff);scene.remove(s.mesh);scene.remove(s.trail);shells.splice(i,1);}}
+  // chained detonations fire a beat after the one that set them off
+  for(i=chain.length-1;i>=0;i--){chain[i].t-=dt;if(chain[i].t<=0){var ci2=chain[i].idx;chain.splice(i,1);if(mines[ci2]&&mines[ci2].live)detonateMine(ci2,false);}}
+  if(S.phase!=="run")return;
+
+  // drums / repair / mines
+  for(i=0;i<drums.length;i++){var d=drums[i];if(d.taken)continue;d.mesh.position.y=0.9+Math.sin(S.t*2+d.phase)*0.18;d.mesh.rotation.x+=dt*0.8;
+    if(d.mesh.position.distanceTo(ship.position)<DRUM_R){d.taken=true;scene.remove(d.mesh);S.drums++;addScore(100);sfx.pickup();
+      if(S.drums===DRUMS_NEEDED&&S.leg===1){setGate(gateEastMat,true);sfx.gate();guide("<b>Six aboard — the eastern gate is open.</b> Run for it. Extras are still out there, but every one makes her heavier.");}
+      else if(S.drums>DRUMS_NEEDED)guide("Extra drum. She is heavier now — top speed down "+Math.round(S.drums*2.8)+"%, helm slower to match.");
+      else guide("Drum aboard. <b>"+(DRUMS_NEEDED-S.drums)+" more</b> and the gate opens.");}}
+  for(i=0;i<repairs.length;i++){var rp=repairs[i];if(rp.taken)continue;rp.mesh.position.y=0.9+Math.sin(S.t*2+rp.phase)*0.18;rp.mesh.rotation.x+=dt*0.8;
+    if(rp.mesh.position.distanceTo(ship.position)<DRUM_R){rp.taken=true;scene.remove(rp.mesh);addScore(150);sfx.repair();
+      if(S.hull<3){S.hull++;syncHud();guide("<b>Compartment patched.</b> "+S.hull+" of three holding.");}else guide("Repair float aboard — hull was already sound, so that is points only.");}}
+  for(i=0;i<mines.length;i++){var mn=mines[i];if(!mn.live)continue;mn.mesh.position.y=0.7+Math.sin(S.t*1.4+mn.phase)*0.14;mn.mesh.rotation.y+=dt*0.3;
+    if(mn.mesh.position.distanceTo(ship.position)<MINE_R){mn.live=false;scene.remove(mn.mesh);boom(mn.mesh.position.x,mn.mesh.position.z,9);hit("Mine on the hull.");if(S.phase!=="run")return;}}
+
+  // craft
+  var alive=0,smoked=S.t<S.smokeUntil;
+  for(i=0;i<craft.length;i++){var f=craft[i];if(f.dead)continue;alive++;
+    var dx=ship.position.x-f.mesh.position.x,dz=ship.position.z-f.mesh.position.z,dist=Math.sqrt(dx*dx+dz*dz);
+    f.timer+=dt;if(f.blind>0)f.blind-=dt;
+    if(f.mode==="chase"){f.heading=Math.atan2(dx,dz);f.speed+=(20-f.speed)*dt*1.4;if(f.timer>5.5){f.mode="break";f.timer=0;}}
+    else if(f.mode==="break"){f.heading=Math.atan2(-dx,-dz);f.speed+=(22-f.speed)*dt*1.6;if(f.timer>4.5){f.mode="patrol";f.timer=0;}}
+    else{f.speed+=(9-f.speed)*dt;if(f.cool<=0){f.heading+=(Math.random()-0.5)*1.4;f.cool=1.6+Math.random()*2;}f.cool-=dt;
+      var near=null,nd=1e9,q;for(var a=0;a<mines.length;a++){if(!mines[a].live)continue;q=mines[a].mesh.position.distanceTo(f.mesh.position);if(q<nd){nd=q;near=mines[a];}}
+      if(near&&nd<11){var bd=Math.atan2(near.mesh.position.x-f.mesh.position.x,near.mesh.position.z-f.mesh.position.z);var diff=Math.atan2(Math.sin(bd-f.heading),Math.cos(bd-f.heading));f.heading-=(diff>=0?1:-1)*2.2*dt;}
+      if(dist<30&&S.t>9&&f.blind<=0&&!smoked){f.mode="chase";f.timer=0;}}
+    var cfx=Math.sin(f.heading),cfz=Math.cos(f.heading),cnx=f.mesh.position.x+cfx*f.speed*dt,cnz=f.mesh.position.z+cfz*f.speed*dt;
+    if(landAtWorld(cnx,cnz)){f.heading+=2.2;f.speed*=0.4;}else{f.mesh.position.x=cnx;f.mesh.position.z=cnz;}
+    f.mesh.rotation.y=f.heading;f.mesh.rotation.z=-Math.sin(S.t*9+i)*0.05*(f.speed/20);f.mesh.position.y=0.3+Math.sin(S.t*7+i)*0.12;
+    if(f.speed>6&&Math.random()<0.5)dropFoam(f.mesh.position.x-cfx*2.2,f.mesh.position.z-cfz*2.2,f.speed/22*0.6);
+    for(var b=0;b<mines.length;b++){if(!mines[b].live)continue;if(mines[b].mesh.position.distanceTo(f.mesh.position)<CRAFT_MINE_R){mines[b].live=false;scene.remove(mines[b].mesh);f.dead=true;scene.remove(f.mesh);boom(f.mesh.position.x,f.mesh.position.z,11);S.kills++;addScore(250);guide("<b>One of them ran onto a mine.</b> On an attack run they stop watching the water.");break;}}
+    if(f.dead)continue;
+    if(dist<CRAFT_R){hit("Attack craft raked the hull.");boom(f.mesh.position.x,f.mesh.position.z,4);f.mesh.position.x-=cfx*14;f.mesh.position.z-=cfz*14;f.speed=4;f.mode="break";f.timer=0;if(S.phase!=="run")return;}}
+  S.reinforce+=dt;
+  if(S.t>25&&alive<3&&S.reinforce>(S.leg===1?18:14)){S.reinforce=0;var fromCol=S.leg===1?COLS-2:1;var rr=bounds(fromCol);spawnCraftAt(fromCol,rr[0]+Math.floor(Math.random()*(rr[1]-rr[0]+1)));guide("<b>Another craft coming in from the "+(S.leg===1?"east":"west")+".</b>",true);}
+
+  // batteries
+  for(i=0;i<batteries.length;i++){var bt2=batteries[i];if(bt2.dead)continue;
+    var bdx=ship.position.x-bt2.mesh.position.x,bdz=ship.position.z-bt2.mesh.position.z,bdist=Math.sqrt(bdx*bdx+bdz*bdz);
+    bt2.mount.rotation.y+=(Math.atan2(bdx,bdz)-bt2.mount.rotation.y)*Math.min(1,dt*2.5);bt2.cool-=dt;
+    if(bdist<44&&bt2.cool<=0&&S.t>6){bt2.cool=(3.6+Math.random()*1.2)*(S.leg===2?0.78:1);
+      var lead=1.7,tx=ship.position.x+fx*S.speed*lead+(Math.random()-0.5)*5,tz=ship.position.z+fz*S.speed*lead+(Math.random()-0.5)*5;
+      var mk=new THREE.Mesh(markerGeo,markerMat.clone());mk.rotation.x=-Math.PI/2;mk.position.set(tx,0.5,tz);scene.add(mk);
+      var round=new THREE.Mesh(arcGeo,arcMat);scene.add(round);
+      arcs.push({mesh:round,marker:mk,x0:bt2.mesh.position.x,z0:bt2.mesh.position.z,y0:bt2.mesh.position.y+2.5,tx:tx,tz:tz,t:0,dur:1.7});
+      boom(bt2.mesh.position.x+Math.sin(bt2.mount.rotation.y)*3,bt2.mesh.position.z+Math.cos(bt2.mount.rotation.y)*3,1.8,0xffffff);sfx.whistle(1.7);
+      if(bdist>30){guide("<b>Battery has you.</b> The red ring is where it lands — be somewhere else in two seconds.",true);sfx.alarm();}}}
+  for(i=arcs.length-1;i>=0;i--){var ar=arcs[i];ar.t+=dt;var u=Math.min(1,ar.t/ar.dur);
+    ar.mesh.position.set(ar.x0+(ar.tx-ar.x0)*u,ar.y0+(1-Math.pow(2*u-1,2))*22*(1-u*0.3),ar.z0+(ar.tz-ar.z0)*u);ar.marker.material.opacity=0.35+0.45*Math.abs(Math.sin(ar.t*9));
+    if(u>=1){boom(ar.tx,ar.tz,7);var ddx=ar.tx-ship.position.x,ddz=ar.tz-ship.position.z;if(ddx*ddx+ddz*ddz<4.6*4.6)hit("Shore battery hit.");scene.remove(ar.mesh);scene.remove(ar.marker);arcs.splice(i,1);if(S.phase!=="run")return;}}
+
+  // jets
+  strafeClock-=dt;
+  if(strafeClock<=0){strafeClock=13+Math.random()*6;
+    if(coastDistance()>9&&S.t>12){var j=jets[Math.floor(Math.random()*jets.length)];
+      if(j.mode==="cruise"){var bearing=Math.random()*6.28,R=110;j.mesh.position.set(ship.position.x+Math.sin(bearing)*R,30,ship.position.z+Math.cos(bearing)*R);
+        var px=ship.position.x+fx*S.speed*2.2,pz=ship.position.z+fz*S.speed*2.2;j.heading=Math.atan2(px-j.mesh.position.x,pz-j.mesh.position.z);j.speed=68;j.alt=30;j.mode="attack";j.strafe=0;j.bank=0;
+        guide("<b>Jet turning in on you.</b> You are in open water — get under the coast, it cannot dive on you there.",true);sfx.alarm();}}}
+
+  // gates and legs
+  if(S.leg===1){
+    if(ship.position.x>EAST_X+1){
+      if(S.drums>=DRUMS_NEEDED){S.leg=2;addScore(300);setGate(gateEastMat,false);setGate(gateWestMat,true);sfx.turn();S.reinforce=10;
+        var wr=bounds(3);for(var w=0;w<2;w++)spawnCraftAt(3+w*2,wr[0]+Math.floor(Math.random()*(wr[1]-wr[0]+1)));
+        guide("<b>Turned at the gate.</b> Now bring her home — west, loaded, slower, and they know you are coming. The western gate is lit.");syncHud();}
+      else{ship.position.x=EAST_X+1;S.speed=0;guide("<b>The gate is shut.</b> You have "+S.drums+" drums and need "+DRUMS_NEEDED+".");}}
+    if(ship.position.x<cx(0))ship.position.x=cx(0);
+  } else {
+    if(ship.position.x<WEST_X-1){over(true,"You brought her out of the strait and back into the Gulf.");return;}
+    if(ship.position.x>cx(COLS-1))ship.position.x=cx(COLS-1);
+  }
+}
+
+function frame(){
+  requestAnimationFrame(frame);
+  var dt=Math.min(clock.getDelta(),0.05),t=clock.elapsedTime,i;
+  step(dt);
+  var pos=waterGeo.attributes.position.array;
+  for(i=0;i<pos.length;i+=3)pos[i+1]=Math.sin(waterBase[i]*0.08+t*1.2)*0.32+Math.cos(waterBase[i+2]*0.11+t*0.9)*0.26+Math.sin((waterBase[i]+waterBase[i+2])*0.21+t*2.1)*0.09;
+  waterGeo.attributes.position.needsUpdate=true;waterGeo.computeVertexNormals();
+  for(i=0;i<foam.length;i++){var f=foam[i];if(f.life<=0)continue;f.life-=dt;var k=f.life/1.4;f.mesh.material.opacity=k*0.55*f.strength;var s=1.6+(1-k)*4.5*f.strength;f.mesh.scale.set(s,s*0.7,1);if(f.life<=0)f.mesh.visible=false;}
+  for(i=booms.length-1;i>=0;i--){var bm=booms[i];bm.t+=dt;var e=Math.min(1,bm.t/0.55),ez=1-Math.pow(1-e,3);bm.fire.scale.setScalar(0.4+ez*bm.size*0.5);bm.fire.material.opacity=0.95*(1-e);var r=1+ez*bm.size*1.3;bm.ring.scale.set(r,r,1);bm.ring.material.opacity=0.8*(1-e);if(bm.t>0.6){scene.remove(bm.fire,bm.ring);booms.splice(i,1);}}
+  if(jolt>0)jolt-=dt*3;
+  for(i=0;i<jets.length;i++){var j=jets[i];var jfx=Math.sin(j.heading),jfz=Math.cos(j.heading);
+    if(j.mode==="attack"){var jd=Math.sqrt(Math.pow(ship.position.x-j.mesh.position.x,2)+Math.pow(ship.position.z-j.mesh.position.z,2));var ahead2=(ship.position.x-j.mesh.position.x)*jfx+(ship.position.z-j.mesh.position.z)*jfz;
+      if(ahead2>0)j.alt+=(Math.max(7,Math.min(30,jd*0.35))-j.alt)*dt*3;else j.alt+=(34-j.alt)*dt*2;
+      if(jd<34&&ahead2>-18&&S.phase==="run"){j.strafe+=dt;if(j.strafe>0.07){j.strafe=0;var gx=j.mesh.position.x+jfx*4,gz=j.mesh.position.z+jfz*4;boom(gx,gz,2.2,0xffffff);var sdx=gx-ship.position.x,sdz=gz-ship.position.z;if(sdx*sdx+sdz*sdz<3.4*3.4)hit("Strafed from the air.");}}
+      if(ahead2<-40){j.mode="cruise";j.speed=55;}}
+    j.mesh.position.x+=jfx*j.speed*dt;j.mesh.position.z+=jfz*j.speed*dt;j.mesh.position.y+=(j.alt-j.mesh.position.y)*dt*3;
+    j.mesh.rotation.set(j.mode==="attack"?0.12:0,j.heading,j.bank+Math.sin(t*1.7+i)*0.06);
+    j.trail+=dt;if(j.trail>0.05){j.trail=0;puff(j.mesh.position.x-jfx*3.2,j.mesh.position.y-0.2,j.mesh.position.z-jfz*3.2,0);}
+    if(Math.abs(j.mesh.position.x)>WORLD_W/2+90||Math.abs(j.mesh.position.z)>WORLD_H/2+90)launchJet(j);}
+  for(i=0;i<puffs.length;i++){var p=puffs[i];if(p.life<=0)continue;p.life-=dt;var pk=p.life/p.max;var op=p.kind===1?0.55:(p.kind===2?0.72*Math.min(1,pk*3):0.45);p.s.material.opacity=pk*op;var ps=p.kind===2?(5+(1-pk)*9):(1.2+(1-pk)*(p.kind===1?4:5));p.s.scale.set(ps,ps,1);p.s.position.y+=p.rise*dt;p.s.position.x+=p.vx*dt;p.s.position.z+=p.vz*dt;if(p.life<=0)p.s.visible=false;}
+  ship.visible=!(S.invuln>0&&Math.floor(S.invuln*12)%2===0);
+  var back=26,up=15,tx=ship.position.x-Math.sin(ship.rotation.y)*back,tz=ship.position.z-Math.cos(ship.rotation.y)*back;
+  camera.position.x+=(tx-camera.position.x)*0.16;camera.position.z+=(tz-camera.position.z)*0.16;camera.position.y+=(up-camera.position.y)*0.16;
+  var jx=(Math.random()-0.5)*jolt*1.4,jy=(Math.random()-0.5)*jolt*1.0;
+  camera.lookAt(ship.position.x+Math.sin(ship.rotation.y)*12+jx,1.5+jy,ship.position.z+Math.cos(ship.rotation.y)*12+jx);
+  sky.position.copy(camera.position);sun.target.position.copy(ship.position);sun.target.updateMatrixWorld();sun.position.set(ship.position.x-70,80,ship.position.z+55);
+  renderer.render(scene,camera);
+  if(S.phase==="run")drawMap();
+}
+spawnWorld();ship.position.set(WEST_X,0,cz(lane["row"+1]));ship.rotation.y=Math.PI/2;camera.position.set(WEST_X-26,15,cz(7));
+syncHud();drawMap();brief();frame();
+})();
+</script>
+</body>
+</html>

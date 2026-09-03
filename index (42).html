@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DRUM — the Strait of Hormuz memecoin with a game in it</title>
+<meta name="description" content="DRUM. One billion supply on Robinhood Chain. Run a tanker through the Strait of Hormuz, load drums, get home, post your score.">
+<style>
+:root{
+  --deep:#0c3340;--water:#12495b;--shoal:#1a6379;
+  --land:#d9c9a3;--landline:#a8956a;
+  --magenta:#c21e7a;--drum:#e0952a;
+  --ink:#0a2029;--paper:#e9e3d3;--paper-dim:#a9bdcb;--haze:#c8c6b6;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--deep);color:var(--paper);font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;font-size:16px;line-height:1.55}
+a{color:var(--drum)}
+.wrap{max-width:1040px;margin:0 auto;padding:0 20px}
+
+/* ---- chart backdrop ---- */
+.hero{position:relative;overflow:hidden;border-bottom:1px solid rgba(233,227,211,.18)}
+.hero svg{position:absolute;inset:0;width:100%;height:100%;opacity:.9}
+.hero .wrap{position:relative;padding-top:72px;padding-bottom:64px}
+.eyebrow{font-size:.78rem;letter-spacing:.08em;color:var(--paper-dim);margin:0 0 10px}
+h1{font-family:Georgia,"Times New Roman",serif;font-style:italic;font-weight:400;font-size:clamp(3.4rem,10vw,7.5rem);line-height:.95;margin:0 0 14px;letter-spacing:-.01em}
+h1 span{color:var(--drum)}
+.lead{font-size:1.15rem;max-width:44ch;margin:0 0 26px;color:var(--paper)}
+.cta{display:inline-block;background:var(--magenta);color:#fff;text-decoration:none;padding:14px 26px;font-size:1rem;border:0}
+.cta:hover{background:#a81868}
+.cta.ghost{background:transparent;border:1px solid rgba(233,227,211,.4);color:var(--paper);margin-left:8px}
+.cta.ghost:hover{background:rgba(233,227,211,.08)}
+
+/* ---- sections ---- */
+section{padding:52px 0;border-bottom:1px solid rgba(233,227,211,.12)}
+h2{font-family:Georgia,serif;font-style:italic;font-weight:400;font-size:1.9rem;margin:0 0 18px}
+.grid{display:grid;gap:36px;grid-template-columns:1.2fr 1fr}
+@media (max-width:760px){.grid{grid-template-columns:1fr}}
+p{margin:0 0 14px;color:var(--paper-dim)}
+p.strong{color:var(--paper)}
+
+/* facts list — chart-legend style */
+.facts{list-style:none;margin:0;padding:0}
+.facts li{display:grid;grid-template-columns:150px 1fr;gap:12px;padding:9px 0;border-bottom:1px solid rgba(233,227,211,.1);font-size:.92rem}
+.facts li span:first-child{color:var(--paper-dim);font-size:.78rem;letter-spacing:.06em;padding-top:2px}
+.facts code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.82rem;word-break:break-all;color:var(--paper)}
+.facts .soon{color:var(--paper-dim);font-style:italic}
+button.copy{font:inherit;font-size:.72rem;background:transparent;color:var(--drum);border:1px solid rgba(224,149,42,.5);padding:2px 8px;margin-left:8px;cursor:pointer}
+button.copy:hover{background:rgba(224,149,42,.12)}
+
+/* leaderboard */
+.board{background:rgba(10,32,41,.5);padding:18px 20px;border:1px solid rgba(233,227,211,.14)}
+.board h3{font-size:.74rem;font-weight:600;letter-spacing:.06em;color:var(--paper-dim);margin:0 0 10px}
+.board ol{list-style:none;margin:0;padding:0}
+.board li{display:grid;grid-template-columns:28px 1fr auto auto;gap:12px;padding:7px 0;border-bottom:1px solid rgba(233,227,211,.08);font-size:.9rem;align-items:baseline}
+.board li:last-child{border-bottom:0}
+.board li span:first-child{color:var(--paper-dim)}
+.board li span:nth-child(2){font-family:ui-monospace,Menlo,monospace;font-size:.82rem}
+.board li span:nth-child(3){color:var(--paper-dim);font-size:.78rem}
+.board li span:nth-child(4){color:var(--drum);font-weight:600}
+.board .empty{color:var(--paper-dim);font-size:.88rem;margin:0}
+.board .note{font-size:.76rem;color:var(--paper-dim);margin:10px 0 0}
+
+/* how to play */
+.steps{display:grid;gap:18px;grid-template-columns:repeat(3,1fr)}
+@media (max-width:760px){.steps{grid-template-columns:1fr}}
+.step{border-top:2px solid var(--magenta);padding-top:12px}
+.step b{display:block;font-family:Georgia,serif;font-style:italic;font-weight:400;font-size:1.2rem;margin-bottom:6px}
+.step p{font-size:.92rem}
+kbd{background:rgba(233,227,211,.1);border:1px solid rgba(233,227,211,.3);padding:1px 6px;font-family:inherit;font-size:.8rem}
+
+/* disclosure */
+.plain{background:rgba(194,30,122,.08);border-left:3px solid var(--magenta);padding:16px 18px}
+.plain p{margin:0 0 8px;font-size:.92rem}
+.plain p:last-child{margin:0}
+
+footer{padding:28px 0 48px;font-size:.8rem;color:var(--paper-dim)}
+footer a{color:var(--paper-dim)}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <!-- simplified strait chart: Iran north, Musandam south, channel between -->
+  <svg viewBox="0 0 1200 520" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+    <rect width="1200" height="520" fill="#12495b"/>
+    <path d="M0 0 H1200 V95 C1050 130 900 90 760 150 C640 200 560 190 470 170 C330 140 200 180 0 110 Z" fill="#d9c9a3"/>
+    <path d="M0 520 V420 C120 380 260 400 380 350 C470 315 540 330 620 330 C720 330 800 390 900 380 C1020 370 1120 430 1200 430 V520 Z" fill="#d9c9a3"/>
+    <path d="M0 0 H1200 V95 C1050 130 900 90 760 150 C640 200 560 190 470 170 C330 140 200 180 0 110 Z" fill="none" stroke="#a8956a" stroke-width="1.5"/>
+    <path d="M0 520 V420 C120 380 260 400 380 350 C470 315 540 330 620 330 C720 330 800 390 900 380 C1020 370 1120 430 1200 430 V520 Z" fill="none" stroke="#a8956a" stroke-width="1.5"/>
+    <ellipse cx="300" cy="215" rx="70" ry="18" fill="#d9c9a3" stroke="#a8956a"/>
+    <circle cx="560" cy="250" r="12" fill="#d9c9a3" stroke="#a8956a"/>
+    <circle cx="640" cy="275" r="9" fill="#d9c9a3" stroke="#a8956a"/>
+    <g stroke="#c21e7a" stroke-width="1.5" stroke-dasharray="10 8" opacity=".75" fill="none">
+      <path d="M0 250 C200 240 400 280 600 265 C800 250 1000 300 1200 285"/>
+      <path d="M0 300 C200 290 400 330 600 315 C800 300 1000 350 1200 335"/>
+    </g>
+    <g fill="#e9e3d3" opacity=".45" font-family="Georgia,serif" font-style="italic" font-size="14">
+      <text x="120" y="60">IRAN</text><text x="900" y="480">OMAN</text>
+      <text x="255" y="220">Qeshm</text><text x="540" y="240">Hormuz</text>
+    </g>
+    <g fill="#e9e3d3" opacity=".25" font-size="9" font-family="Helvetica,Arial,sans-serif">
+      <text x="200" y="330">42</text><text x="380" y="300">58</text><text x="700" y="240">61</text><text x="900" y="330">74</text><text x="1050" y="260">88</text>
+    </g>
+  </svg>
+  <div class="wrap">
+    <p class="eyebrow">A memecoin on Robinhood Chain · with a game in it</p>
+    <h1><span>DRUM</span></h1>
+    <p class="lead">One billion drums. Run a loaded tanker through the Strait of Hormuz, pick up six, get home, and post your score under your wallet.</p>
+    <a class="cta" href="hormuz-run.html">Play Hormuz Run</a>
+    <a class="cta ghost" href="#token">Token facts</a>
+  </div>
+</header>
+
+<main class="wrap">
+
+<section id="token">
+  <div class="grid">
+    <div>
+      <h2>The token</h2>
+      <ul class="facts" id="facts">
+        <li><span>Ticker</span><span>DRUM</span></li>
+        <li><span>Supply</span><span>1,000,000,000 — fixed, all minted at deploy</span></li>
+        <li><span>Chain</span><span>Robinhood Chain · id 4663</span></li>
+        <li><span>Contract</span><span id="contract-cell"><span class="soon">Not deployed yet. Address goes here the moment it is.</span></span></li>
+        <li><span>Owner</span><span>None. No mint, no tax, no pause, no blacklist. Nothing anyone can change after deploy.</span></li>
+        <li><span>Liquidity</span><span id="lp-cell"><span class="soon">Pool not created yet. When it is, the LP position gets burned and the transaction is linked here.</span></span></li>
+        <li><span>Deployer bag</span><span id="bag-cell"><span class="soon">Disclosed here once there is one. Updated if it changes.</span></span></li>
+        <li><span>Chart</span><span id="chart-cell"><span class="soon">Appears once the pool exists.</span></span></li>
+      </ul>
+    </div>
+    <div>
+      <div class="board">
+        <h3>LEADERBOARD · best run per wallet</h3>
+        <div id="board"><p class="empty">Loading…</p></div>
+        <p class="note">Scores are signed by the wallet that posts them. Holding DRUM is not required to play or post.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="play">
+  <h2>The game</h2>
+  <p class="strong">You are the tanker. Everyone else in the strait wants you on the bottom.</p>
+  <div class="steps">
+    <div class="step"><b>Run east</b><p>Load six drums on the way through. Every one aboard makes her heavier and slower to turn. There is always a clean line through the mines — it is on your chart, top right.</p></div>
+    <div class="step"><b>Fight through</b><p>A deck gun that aims itself — <kbd>Space</kbd> to fire, and it jams if you hold it. Shore batteries shell you at the narrows; the red ring is where it lands. Attack craft make passes. Jets strafe anything in open water. Smoke on <kbd>E</kbd> breaks a lock.</p></div>
+    <div class="step"><b>Turn and come home</b><p>Clearing the eastern gate is the halfway point. The run back west is loaded, slower, and they know you are coming. Score is drums, kills, mines cleared, batteries silenced, time, and hull.</p></div>
+  </div>
+  <p style="margin-top:22px"><a class="cta" href="hormuz-run.html">Play in the browser</a> <span style="color:var(--paper-dim);font-size:.85rem;margin-left:10px">Keyboard on desktop, touch controls on a phone. No wallet needed to play.</span></p>
+</section>
+
+<section id="plain">
+  <h2>Plainly</h2>
+  <div class="plain">
+    <p>DRUM is a memecoin. It has no utility beyond a leaderboard and a joke about the Strait of Hormuz. There is no roadmap, no treasury, no yield, and nothing is promised.</p>
+    <p>The contract has no owner and cannot be changed. The pool's liquidity will be burned and the transaction will be linked on this page. Whatever the deployer holds is stated above and updated if it changes.</p>
+    <p>Don't put in anything you'd miss.</p>
+  </div>
+</section>
+
+</main>
+
+<footer class="wrap">
+  <span id="foot-links">Explorer link appears once the contract is live.</span>
+</footer>
+
+<script>
+(function(){
+"use strict";
+// ================= config — fill these in after deploy =================
+var CONFIG={
+  DRUM_ADDRESS:"0x0000000000000000000000000000000000000000",
+  EXPLORER:"https://robinhoodchain.blockscout.com",
+  LP_BURN_TX:"",          // tx hash of the LP position going to 0x…dEaD
+  DEPLOYER_BAG:"",        // e.g. "10,000,000 DRUM (1.0%) across 0x6943…66E3"
+  CHART_URL:"",           // DEX chart link once the pool exists
+  SUPABASE_URL:"https://YOUR-PROJECT.supabase.co",
+  SUPABASE_ANON:"YOUR-ANON-KEY"
+};
+var TOKEN_LIVE=!/^0x0{40}$/i.test(CONFIG.DRUM_ADDRESS);
+var BOARD_LIVE=!/YOUR-PROJECT/.test(CONFIG.SUPABASE_URL);
+function shortAddr(a){return a.slice(0,6)+"…"+a.slice(-4);}
+
+if(TOKEN_LIVE){
+  document.getElementById("contract-cell").innerHTML='<code>'+CONFIG.DRUM_ADDRESS+'</code><button class="copy" id="copy-addr">copy</button> · <a href="'+CONFIG.EXPLORER+'/token/'+CONFIG.DRUM_ADDRESS+'">explorer</a>';
+  document.getElementById("copy-addr").addEventListener("click",function(){navigator.clipboard.writeText(CONFIG.DRUM_ADDRESS).then(function(){document.getElementById("copy-addr").textContent="copied";});});
+  document.getElementById("foot-links").innerHTML='<a href="'+CONFIG.EXPLORER+'/token/'+CONFIG.DRUM_ADDRESS+'">Contract on Blockscout</a>';
+}
+if(CONFIG.LP_BURN_TX) document.getElementById("lp-cell").innerHTML='Burned. <a href="'+CONFIG.EXPLORER+'/tx/'+CONFIG.LP_BURN_TX+'">Transaction</a>';
+if(CONFIG.DEPLOYER_BAG) document.getElementById("bag-cell").textContent=CONFIG.DEPLOYER_BAG;
+if(CONFIG.CHART_URL) document.getElementById("chart-cell").innerHTML='<a href="'+CONFIG.CHART_URL+'">Open chart</a>';
+
+var board=document.getElementById("board");
+if(!BOARD_LIVE){ board.innerHTML='<p class="empty">Not wired up yet — the Supabase project is not set in this page\'s config.</p>'; return; }
+fetch(CONFIG.SUPABASE_URL+"/rest/v1/drum_leaderboard?select=wallet,score,drums,time_s,won&order=score.desc&limit=10",{headers:{apikey:CONFIG.SUPABASE_ANON,Authorization:"Bearer "+CONFIG.SUPABASE_ANON}})
+  .then(function(r){if(!r.ok)throw new Error(r.status);return r.json();})
+  .then(function(rows){
+    if(!rows.length){board.innerHTML='<p class="empty">No runs posted yet. First one through the strait tops the board.</p>';return;}
+    board.innerHTML='<ol>'+rows.map(function(r,i){return '<li><span>'+(i+1)+'</span><span>'+shortAddr(r.wallet)+'</span><span>'+r.drums+' drums · '+r.time_s+'s'+(r.won?" · home":"")+'</span><span>'+r.score+'</span></li>';}).join("")+'</ol>';
+  })
+  .catch(function(){board.innerHTML='<p class="empty">Could not reach the leaderboard right now.</p>';});
+})();
+</script>
+</body>
+</html>
