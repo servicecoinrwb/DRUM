@@ -6,6 +6,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>DRUM — the Strait of Hormuz memecoin with a game in it</title>
 <meta name="description" content="DRUM. One billion supply on Robinhood Chain. Run a tanker through the Strait of Hormuz, load drums, get home, post your score.">
+<link rel="canonical" href="https://drumtoken.com/">
+<meta property="og:title" content="DRUM — the Strait of Hormuz memecoin with a game in it">
+<meta property="og:description" content="One billion drums on Robinhood Chain. Run the tanker, load six, get home, put your initials on the board.">
+<meta property="og:url" content="https://drumtoken.com/">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary">
 <style>
 :root{
   --deep:#0c3340;--water:#12495b;--shoal:#1a6379;
@@ -29,8 +35,10 @@ h1 span{color:var(--drum)}
 .lead{font-size:1.15rem;max-width:44ch;margin:0 0 26px;color:var(--paper)}
 .cta{display:inline-block;background:var(--magenta);color:#fff;text-decoration:none;padding:14px 26px;font-size:1rem;border:0}
 .cta:hover{background:#a81868}
-.cta.ghost{background:transparent;border:1px solid rgba(233,227,211,.4);color:var(--paper);margin-left:8px}
-.cta.ghost:hover{background:rgba(233,227,211,.08)}
+.cta.ghost{background:var(--ink);border:1px solid rgba(233,227,211,.25);color:var(--paper);margin-left:8px;box-shadow:0 6px 18px -8px rgba(0,0,0,.6)}
+.cta.ghost:hover{background:#12313d}
+.cta.soon{color:var(--paper-dim);cursor:default}
+.cta.soon:hover{background:var(--ink)}
 
 /* ---- sections ---- */
 section{padding:52px 0;border-bottom:1px solid rgba(233,227,211,.12)}
@@ -56,7 +64,7 @@ button.copy:hover{background:rgba(224,149,42,.12)}
 .board li{display:grid;grid-template-columns:28px 1fr auto auto;gap:12px;padding:7px 0;border-bottom:1px solid rgba(233,227,211,.08);font-size:.9rem;align-items:baseline}
 .board li:last-child{border-bottom:0}
 .board li span:first-child{color:var(--paper-dim)}
-.board li span:nth-child(2){font-family:ui-monospace,Menlo,monospace;font-size:.82rem}
+.board li span:nth-child(2){font-family:ui-monospace,Menlo,monospace;font-size:1.05rem;letter-spacing:.16em;color:var(--paper)}
 .board li span:nth-child(3){color:var(--paper-dim);font-size:.78rem}
 .board li span:nth-child(4){color:var(--drum);font-weight:600}
 .board .empty{color:var(--paper-dim);font-size:.88rem;margin:0}
@@ -107,8 +115,9 @@ footer a{color:var(--paper-dim)}
   <div class="wrap">
     <p class="eyebrow">A memecoin on Robinhood Chain · with a game in it</p>
     <h1><span>DRUM</span></h1>
-    <p class="lead">One billion drums. Run a loaded tanker through the Strait of Hormuz, pick up six, get home, and post your score under your wallet.</p>
+    <p class="lead">One billion drums. Run a loaded tanker through the Strait of Hormuz, pick up six, get home, and put your initials on the board.</p>
     <a class="cta" href="hormuz-run.html">Play Hormuz Run</a>
+    <a class="cta ghost" id="buy-cta" href="#token" title="Pool not created yet">Buy DRUM · soon</a>
     <a class="cta ghost" href="#token">Token facts</a>
   </div>
 </header>
@@ -127,14 +136,15 @@ footer a{color:var(--paper-dim)}
         <li><span>Owner</span><span>None. No mint, no tax, no pause, no blacklist. Nothing anyone can change after deploy.</span></li>
         <li><span>Liquidity</span><span id="lp-cell"><span class="soon">Pool not created yet. When it is, the LP position gets burned and the transaction is linked here.</span></span></li>
         <li><span>Deployer bag</span><span id="bag-cell"><span class="soon">Disclosed here once there is one. Updated if it changes.</span></span></li>
+        <li><span>Buy</span><span id="buy-cell"><span class="soon">Uniswap on Robinhood Chain — link goes live with the pool.</span></span></li>
         <li><span>Chart</span><span id="chart-cell"><span class="soon">Appears once the pool exists.</span></span></li>
       </ul>
     </div>
     <div>
       <div class="board">
-        <h3>LEADERBOARD · best run per wallet</h3>
+        <h3>HIGH SCORES</h3>
         <div id="board"><p class="empty">Loading…</p></div>
-        <p class="note">Scores are signed by the wallet that posts them. Holding DRUM is not required to play or post.</p>
+        <p class="note">Three initials, like a pinball machine. No wallet needed to play or post.</p>
       </div>
     </div>
   </div>
@@ -163,7 +173,7 @@ footer a{color:var(--paper-dim)}
 </main>
 
 <footer class="wrap">
-  <span id="foot-links">Explorer link appears once the contract is live.</span>
+  <span id="foot-links">Explorer link appears once the contract is live.</span> · <a href="https://drumtoken.com/">drumtoken.com</a>
 </footer>
 
 <script>
@@ -176,6 +186,8 @@ var CONFIG={
   LP_BURN_TX:"",          // tx hash of the LP position going to 0x…dEaD
   DEPLOYER_BAG:"",        // e.g. "10,000,000 DRUM (1.0%) across 0x6943…66E3"
   CHART_URL:"",           // DEX chart link once the pool exists
+  POOL_LIVE:false,        // flip to true once the DRUM/ETH pool exists — turns "Buy · soon" into a real link
+  BUY_URL:"https://app.uniswap.org/swap?chain=robinhood&outputCurrency=0xBc28AC01d058931A1F4E0f5C936fcFB5c7C60721",
   SUPABASE_URL:"https://uazkrxhgxiasqamgzemp.supabase.co",
   SUPABASE_ANON:"sb_publishable_hU1llqqIocD7yFs17yWvoA_uI4pw1Ru"
 };
@@ -191,14 +203,17 @@ if(TOKEN_LIVE){
 if(CONFIG.LP_BURN_TX) document.getElementById("lp-cell").innerHTML='Burned. <a href="'+CONFIG.EXPLORER+'/tx/'+CONFIG.LP_BURN_TX+'">Transaction</a>';
 if(CONFIG.DEPLOYER_BAG) document.getElementById("bag-cell").textContent=CONFIG.DEPLOYER_BAG;
 if(CONFIG.CHART_URL) document.getElementById("chart-cell").innerHTML='<a href="'+CONFIG.CHART_URL+'">Open chart</a>';
+var buy=document.getElementById("buy-cta");
+if(CONFIG.POOL_LIVE&&CONFIG.BUY_URL){ buy.textContent="Buy DRUM on Uniswap"; buy.href=CONFIG.BUY_URL; buy.title=""; buy.target="_blank"; buy.rel="noopener"; document.getElementById("buy-cell").innerHTML='<a href="'+CONFIG.BUY_URL+'" target="_blank" rel="noopener">Uniswap · Robinhood Chain</a>'; }
+else { buy.classList.add("soon"); buy.addEventListener("click",function(e){e.preventDefault();}); }
 
 var board=document.getElementById("board");
 if(!BOARD_LIVE){ board.innerHTML='<p class="empty">Not wired up yet — the Supabase project is not set in this page\'s config.</p>'; return; }
-fetch(CONFIG.SUPABASE_URL+"/rest/v1/drum_leaderboard?select=wallet,score,drums,time_s,won&order=score.desc&limit=10",{headers:{apikey:CONFIG.SUPABASE_ANON,Authorization:"Bearer "+CONFIG.SUPABASE_ANON}})
+fetch(CONFIG.SUPABASE_URL+"/rest/v1/drum_scores?select=initials,score,drums,time_s,won&order=score.desc,created_at.asc&limit=10",{headers:{apikey:CONFIG.SUPABASE_ANON,Authorization:"Bearer "+CONFIG.SUPABASE_ANON}})
   .then(function(r){if(!r.ok)throw new Error(r.status);return r.json();})
   .then(function(rows){
     if(!rows.length){board.innerHTML='<p class="empty">No runs posted yet. First one through the strait tops the board.</p>';return;}
-    board.innerHTML='<ol>'+rows.map(function(r,i){return '<li><span>'+(i+1)+'</span><span>'+shortAddr(r.wallet)+'</span><span>'+r.drums+' drums · '+r.time_s+'s'+(r.won?" · home":"")+'</span><span>'+r.score+'</span></li>';}).join("")+'</ol>';
+    board.innerHTML='<ol>'+rows.map(function(r,i){return '<li><span>'+(i+1)+'</span><span class="ini">'+r.initials+'</span><span>'+r.drums+' drums · '+r.time_s+'s'+(r.won?" · home":"")+'</span><span>'+r.score+'</span></li>';}).join("")+'</ol>';
   })
   .catch(function(){board.innerHTML='<p class="empty">Could not reach the leaderboard right now.</p>';});
 })();
