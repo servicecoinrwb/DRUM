@@ -211,7 +211,9 @@ function isLand(c,r){ if(c<0||c>=COLS||r<0||r>=ROWS)return true; var b=bounds(c)
 function cx(c){return (c-COLS/2)*CELL+CELL/2;} function cz(r){return (r-ROWS/2)*CELL+CELL/2;}
 function colAt(x){return Math.floor((x-CELL/2)/CELL+COLS/2+0.5);} function rowAt(z){return Math.floor((z-CELL/2)/CELL+ROWS/2+0.5);}
 function landAtWorld(x,z){return isLand(colAt(x),rowAt(z));}
-function hullBlocked(px,pz,fx,fz){return landAtWorld(px,pz)||landAtWorld(px+fx*4.5,pz+fz*4.5)||landAtWorld(px-fx*4.5,pz-fz*4.5);}
+// the ship collides with what it can see: the same shoreline the terrain mesh is built from
+function seaAt(x,z){return distToWater(x,z)<0.9;}
+function hullBlocked(px,pz,fx,fz){return !seaAt(px,pz)||!seaAt(px+fx*3.6,pz+fz*3.6)||!seaAt(px-fx*3.6,pz-fz*3.6);}
 var WEST_X=cx(1), EAST_X=cx(COLS-2), DRUMS_NEEDED=6, WORLD_W=COLS*CELL, WORLD_H=ROWS*CELL;
 function makeLane(){ var lane={},r=7,c,prev; for(c=0;c<COLS;c++){ prev=r; var b=bounds(c); if(r<b[0])r=b[0]; if(r>b[1])r=b[1]; if(c>1&&c<COLS-2&&Math.random()<0.4){var dr=Math.random()<0.5?-1:1;if(!isLand(c,r+dr))r+=dr;} if(isLand(c,r)){if(!isLand(c,r-1))r--;else if(!isLand(c,r+1))r++;} var lo=Math.min(prev,r),hi=Math.max(prev,r); for(var k=lo;k<=hi;k++)if(!isLand(c,k))lane[c+","+k]=true; lane["row"+c]=r; } return lane; }
 
@@ -330,7 +332,7 @@ function makeDrum(x,z,rep){var g=new THREE.Group();var m=new THREE.Mesh(drumGeo,
 function makeMine(x,z){var g=new THREE.Group();g.add(new THREE.Mesh(new THREE.SphereGeometry(1.25,14,12),mineMat));for(var s=0;s<6;s++){var sp=new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.2,1.2,5),spikeMat);var a=s/6*Math.PI*2;sp.position.set(Math.cos(a)*1.2,0.85,Math.sin(a)*1.2);sp.rotation.z=-Math.cos(a)*0.75;sp.rotation.x=Math.sin(a)*0.75;g.add(sp);}g.position.set(x,0.7,z);shadowed(g);return g;}
 function makeCraft(x,z){var g=new THREE.Group();var h=new THREE.Mesh(new THREE.BoxGeometry(1.5,0.9,4.2),craftMat);h.position.y=0.4;g.add(h);var t=new THREE.Mesh(new THREE.BoxGeometry(1.1,0.7,1.2),craftDark);t.position.set(0,1.1,-0.6);g.add(t);var gun=new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.07,1.4,6),craftDark);gun.rotation.x=Math.PI/2;gun.position.set(0,1.0,1.6);g.add(gun);var nose=new THREE.Mesh(new THREE.ConeGeometry(0.75,1.4,4),craftMat);nose.rotation.x=Math.PI/2;nose.rotation.y=Math.PI/4;nose.position.set(0,0.4,2.8);g.add(nose);g.position.set(x,0.3,z);shadowed(g);return g;}
 function makeBattery(x,z){var g=new THREE.Group(),y=terrainHeight(x,z);var plinth=new THREE.Mesh(new THREE.CylinderGeometry(2.4,2.8,1.6,12),batMat);plinth.position.y=0.8;g.add(plinth);var wall=new THREE.Mesh(new THREE.CylinderGeometry(2.5,2.5,0.9,12,1,true),batMat);wall.position.y=2.0;g.add(wall);var mount=new THREE.Group();var m=new THREE.Mesh(new THREE.BoxGeometry(1.6,1.0,1.8),batGun);m.position.y=0.5;mount.add(m);var tube=new THREE.Mesh(new THREE.BoxGeometry(0.28,0.28,4.2),batGun);tube.position.set(0,0.7,2.2);tube.rotation.x=-0.28;mount.add(tube);mount.position.y=1.8;g.add(mount);g.position.set(x,y,z);shadowed(g);return {mesh:g,mount:mount};}
-function spawnCraftAt(c,r){var m=makeCraft(cx(c),cz(r));scene.add(m);craft.push({mesh:m,heading:Math.random()*6.28,speed:0,cool:0,dead:false,mode:"patrol",timer:0,hp:2,blind:0});}
+function spawnCraftAt(c,r){var m=makeCraft(cx(c),cz(r));scene.add(m);craft.push({mesh:m,heading:Math.random()*6.28,speed:0,cool:0,dead:false,mode:"patrol",timer:0,hp:2,blind:0,passCool:0,closed:false,vx:0,vz:0});}
 
 function spawnWorld(){
   var i;
@@ -353,7 +355,7 @@ function spawnWorld(){
 }
 
 // ================= state =================
-var S={phase:"brief",leg:1,drums:0,hull:3,speed:0,invuln:0,t:0,score:0,kills:0,batsKilled:0,heat:0,jammed:false,fireCool:0,reinforce:0,dmgSmoke:0,smokeCharges:3,smokeUntil:0,smokeKey:false};
+var S={phase:"brief",leg:1,drums:0,hull:5,speed:0,invuln:0,t:0,score:0,kills:0,batsKilled:0,heat:0,jammed:false,fireCool:0,reinforce:0,dmgSmoke:0,smokeCharges:3,smokeUntil:0,smokeKey:false};
 var keys={},touch={left:false,right:false,fwd:false,rev:false,fire:false,smoke:false};
 var MAXSPD=17,ACC=14,DRAG=4.5,TURN=2.1;
 var MINE_R=2.8,DRUM_R=5.2,CRAFT_R=4.4,CRAFT_MINE_R=2.7,GUN_RANGE=58;
@@ -361,7 +363,7 @@ function effMax(){return MAXSPD*(1-0.028*S.drums);}
 function effTurn(){return TURN*(1-0.03*S.drums);}
 
 function resetRun(){
-  S.leg=1;S.drums=0;S.hull=3;S.speed=0;S.invuln=0;S.t=0;S.score=0;S.kills=0;S.batsKilled=0;S.heat=0;S.jammed=false;S.fireCool=0;S.reinforce=0;S.smokeCharges=3;S.smokeUntil=0;chain=[];minesCleared=0;
+  S.leg=1;S.drums=0;S.hull=5;S.speed=0;S.invuln=0;S.t=0;S.score=0;S.kills=0;S.batsKilled=0;S.heat=0;S.jammed=false;S.fireCool=0;S.reinforce=0;S.smokeCharges=3;S.smokeUntil=0;chain=[];minesCleared=0;
   setGate(gateEastMat,false);setGate(gateWestMat,false);
   spawnWorld();strafeClock=16;
   ship.position.set(WEST_X,0,cz(lane["row"+1]));ship.rotation.y=Math.PI/2;
@@ -372,7 +374,7 @@ function resetRun(){
 function addScore(n){S.score+=n;syncHud();}
 var el={drums:document.getElementById("hud-drums"),hull:document.getElementById("hud-hull"),speed:document.getElementById("hud-speed"),guide:document.getElementById("guide"),heat:document.getElementById("hud-heat"),score:document.getElementById("hud-score"),smoke:document.getElementById("hud-smoke"),leg:document.getElementById("hud-leg"),obj:document.getElementById("hud-obj"),arrow:document.getElementById("hud-arrow"),snd:document.getElementById("hud-snd")};
 function guide(t,warn){el.guide.innerHTML=t;el.guide.className=warn?"warn":"";}
-function syncHud(){el.drums.textContent=S.drums;var out="";for(var i=0;i<3;i++)out+='<i class="'+(i<S.hull?"":"gone")+'"></i>';el.hull.innerHTML=out;el.speed.textContent=Math.round(Math.abs(S.speed)*1.2);el.heat.style.width=Math.min(100,S.heat*100)+"%";el.heat.className=S.jammed?"hot":"";el.score.textContent=S.score;var sm="";for(i=0;i<3;i++)sm+='<i class="'+(i<S.smokeCharges?"":"gone")+'"></i>';el.smoke.innerHTML=sm;
+function syncHud(){el.drums.textContent=S.drums;var out="";for(var i=0;i<5;i++)out+='<i class="'+(i<S.hull?"":"gone")+'"></i>';el.hull.innerHTML=out;el.speed.textContent=Math.round(Math.abs(S.speed)*1.2);el.heat.style.width=Math.min(100,S.heat*100)+"%";el.heat.className=S.jammed?"hot":"";el.score.textContent=S.score;var sm="";for(i=0;i<3;i++)sm+='<i class="'+(i<S.smokeCharges?"":"gone")+'"></i>';el.smoke.innerHTML=sm;
   var objText;
   if(S.leg===1) objText = S.drums>=DRUMS_NEEDED ? "East gate is open — go east" : "East gate · need "+(DRUMS_NEEDED-S.drums)+" more drum"+(DRUMS_NEEDED-S.drums===1?"":"s");
   else objText = "Home · west gate";
@@ -418,7 +420,7 @@ window.addEventListener("resize",function(){camera.aspect=window.innerWidth/wind
 
 function hit(msg){if(S.invuln>0)return;S.hull--;S.invuln=1.6;S.speed*=0.35;jolt=1;sfx.hit();syncHud();
   if(S.hull<=0){boom(ship.position.x,ship.position.z,16);over(false,msg+" The tanker went down in the channel.");return;}
-  guide("<b>"+msg+"</b> "+S.hull+" of three compartments holding. One more like that and she goes down.",true);}
+  guide("<b>"+msg+"</b> "+S.hull+" of five compartments holding."+(S.hull===1?" One more and she goes down.":""),true);}
 function coastDistance(){return -distToWater(ship.position.x,ship.position.z);}
 var chain=[],minesCleared=0;
 function detonateMine(idx,byShell){
@@ -448,14 +450,14 @@ function step(dt){
   if(!hullBlocked(nx,nzz,fx,fz)){ship.position.x=nx;ship.position.z=nzz;moved=true;}
   else if(!hullBlocked(nx,ship.position.z,fx,fz)){ship.position.x=nx;moved=true;scraping=true;}
   else if(!hullBlocked(ship.position.x,nzz,fx,fz)){ship.position.z=nzz;moved=true;scraping=true;}
-  if(!moved){var fast=Math.abs(S.speed)>MAXSPD*0.55;S.speed=0;if(fast)hit("Ran her aground at speed.");else guide("Hard aground, bow in. Back her off with <b>S</b>, then put the helm over.");}
-  else if(scraping){S.speed*=0.93;if(Math.abs(S.speed)>1)guide("Scraping the shore. Ease off and steer back into the channel.");}
+  if(!moved){var fast=Math.abs(S.speed)>MAXSPD*0.7;S.speed*=0.25;if(fast)hit("Ran her aground at speed.");else guide("Aground, bow in. Back her off with <b>S</b>, then put the helm over.");}
+  else if(scraping){S.speed*=0.985;if(Math.abs(S.speed)>1)guide("Scraping the shore. Steer back into the channel.");}
   if(S.invuln>0)S.invuln-=dt;
   ship.rotation.z+=((-turning*0.07*Math.min(1,Math.abs(S.speed)/MAXSPD))-ship.rotation.z)*dt*4;
   ship.rotation.x=Math.sin(S.t*1.3)*0.012;ship.position.y=Math.sin(S.t*1.1)*0.12-S.drums*0.03;
   engineUpdate(Math.abs(S.speed)/MAXSPD);
   foamClock+=dt;if(Math.abs(S.speed)>2.5&&foamClock>0.07){foamClock=0;dropFoam(ship.position.x-fx*4.6+(Math.random()-0.5)*1.6,ship.position.z-fz*4.6+(Math.random()-0.5)*1.6,Math.abs(S.speed)/MAXSPD);}
-  if(S.hull<3){S.dmgSmoke+=dt;if(S.dmgSmoke>(S.hull===2?0.22:0.09)){S.dmgSmoke=0;puff(ship.position.x-fx*2+(Math.random()-0.5)*1.5,2.6,ship.position.z-fz*2+(Math.random()-0.5)*1.5,1);}}
+  if(S.hull<4){S.dmgSmoke+=dt;if(S.dmgSmoke>(S.hull>=2?0.22:0.09)){S.dmgSmoke=0;puff(ship.position.x-fx*2+(Math.random()-0.5)*1.5,2.6,ship.position.z-fz*2+(Math.random()-0.5)*1.5,1);}}
 
   // smoke screen
   var wantSmoke=keys.e||keys.shift||touch.smoke;
@@ -469,13 +471,13 @@ function step(dt){
   S.smokeKey=!!wantSmoke;
 
   var i;
-  // gun
-  var target=null,td=GUN_RANGE;
-  for(i=0;i<craft.length;i++){if(craft[i].dead)continue;var cd=craft[i].mesh.position.distanceTo(ship.position);if(cd<td){td=cd;target=craft[i].mesh;}}
-  for(i=0;i<batteries.length;i++){if(batteries[i].dead)continue;var bd2=batteries[i].mesh.position.distanceTo(ship.position);if(bd2<td){td=bd2;target=batteries[i].mesh;}}
+  // gun — aim at where the target will be, not where it is
+  var target=null,td=GUN_RANGE,aimX=0,aimZ=0;
+  for(i=0;i<craft.length;i++){if(craft[i].dead)continue;var cf0=craft[i],cd=cf0.mesh.position.distanceTo(ship.position);if(cd<td){td=cd;target=cf0.mesh;var tof=cd/75;aimX=cf0.mesh.position.x+(cf0.vx||0)*tof;aimZ=cf0.mesh.position.z+(cf0.vz||0)*tof;}}
+  for(i=0;i<batteries.length;i++){if(batteries[i].dead)continue;var bd2=batteries[i].mesh.position.distanceTo(ship.position);if(bd2<td){td=bd2;target=batteries[i].mesh;aimX=target.position.x;aimZ=target.position.z;}}
   // nothing hostile in range — lay onto the nearest mine in the forward arc
-  if(!target){var md=36;for(i=0;i<mines.length;i++){if(!mines[i].live)continue;var mp=mines[i].mesh.position,mdx=mp.x-ship.position.x,mdz=mp.z-ship.position.z,mdist=Math.sqrt(mdx*mdx+mdz*mdz);if(mdist<md&&(mdx*fx+mdz*fz)/Math.max(mdist,0.01)>0.15){md=mdist;target=mines[i].mesh;}}}
-  if(target){var ang=Math.atan2(target.position.x-ship.position.x,target.position.z-ship.position.z)-ship.rotation.y;var cur=turret.rotation.y;var dA=Math.atan2(Math.sin(ang-cur),Math.cos(ang-cur));turret.rotation.y+=dA*Math.min(1,dt*7);}else turret.rotation.y+=(0-turret.rotation.y)*dt*3;
+  if(!target){var md=36;for(i=0;i<mines.length;i++){if(!mines[i].live)continue;var mp=mines[i].mesh.position,mdx=mp.x-ship.position.x,mdz=mp.z-ship.position.z,mdist=Math.sqrt(mdx*mdx+mdz*mdz);if(mdist<md&&(mdx*fx+mdz*fz)/Math.max(mdist,0.01)>0.15){md=mdist;target=mines[i].mesh;aimX=mp.x;aimZ=mp.z;}}}
+  if(target){var ang=Math.atan2(aimX-ship.position.x,aimZ-ship.position.z)-ship.rotation.y;var cur=turret.rotation.y;var dA=Math.atan2(Math.sin(ang-cur),Math.cos(ang-cur));turret.rotation.y+=dA*Math.min(1,dt*10);}else turret.rotation.y+=(0-turret.rotation.y)*dt*3;
   S.heat=Math.max(0,S.heat-dt*0.42);if(S.jammed&&S.heat<0.35){S.jammed=false;guide("Gun cooled. Back in action.");}
   S.fireCool-=dt;
   if((keys[" "]||touch.fire)&&!S.jammed&&S.fireCool<=0){
@@ -488,9 +490,11 @@ function step(dt){
   }
   syncHud();
   for(i=shells.length-1;i>=0;i--){var s=shells[i];s.life-=dt;s.mesh.position.x+=s.vx*dt;s.mesh.position.z+=s.vz*dt;s.trail.position.copy(s.mesh.position);s.trail.position.y-=0.1;
-    var gone=s.life<=0||landAtWorld(s.mesh.position.x,s.mesh.position.z),k;
-    for(k=0;k<craft.length&&!gone;k++){var cf=craft[k];if(cf.dead)continue;if(cf.mesh.position.distanceTo(s.mesh.position)<2.4){gone=true;cf.hp--;boom(cf.mesh.position.x,cf.mesh.position.z,cf.hp<=0?9:2.5);if(cf.hp<=0){cf.dead=true;scene.remove(cf.mesh);S.kills++;addScore(250);guide("<b>Attack craft sunk.</b> More will come from "+(S.leg===1?"the east":"the west")+".");}}}
-    for(k=0;k<batteries.length&&!gone;k++){var bt=batteries[k];if(bt.dead)continue;var bx=bt.mesh.position.x-s.mesh.position.x,bz=bt.mesh.position.z-s.mesh.position.z;if(bx*bx+bz*bz<3.2*3.2){gone=true;bt.hp--;boom(bt.mesh.position.x,bt.mesh.position.z,bt.hp<=0?12:3);if(bt.hp<=0){bt.dead=true;bt.mount.visible=false;S.batsKilled++;addScore(400);guide("<b>Battery silenced.</b> That headland is quiet now — and it stays quiet for the run home.");}}}
+    var gone=false,k;
+    // batteries sit on land, so test them before the shell is written off as a ground strike
+    for(k=0;k<batteries.length&&!gone;k++){var bt=batteries[k];if(bt.dead)continue;var bx=bt.mesh.position.x-s.mesh.position.x,bz=bt.mesh.position.z-s.mesh.position.z;if(bx*bx+bz*bz<4.2*4.2){gone=true;bt.hp--;boom(bt.mesh.position.x,bt.mesh.position.z,bt.hp<=0?12:3);if(bt.hp<=0){bt.dead=true;bt.mount.visible=false;S.batsKilled++;addScore(400);guide("<b>Battery silenced.</b> That headland is quiet now — and it stays quiet for the run home.");}else guide("Battery hit — "+bt.hp+" more to silence it.");}}
+    if(!gone&&(s.life<=0||landAtWorld(s.mesh.position.x,s.mesh.position.z)))gone=true;
+    for(k=0;k<craft.length&&!gone;k++){var cf=craft[k];if(cf.dead)continue;if(cf.mesh.position.distanceTo(s.mesh.position)<3.4){gone=true;cf.hp--;boom(cf.mesh.position.x,cf.mesh.position.z,cf.hp<=0?9:2.5);if(cf.hp<=0){cf.dead=true;scene.remove(cf.mesh);S.kills++;addScore(250);guide("<b>Attack craft sunk.</b> More will come from "+(S.leg===1?"the east":"the west")+".");}}}
     for(k=0;k<mines.length&&!gone;k++){if(!mines[k].live)continue;if(mines[k].mesh.position.distanceTo(s.mesh.position)<2.1){gone=true;detonateMine(k,true);}}
     if(gone){if(s.life<=0)boom(s.mesh.position.x,s.mesh.position.z,1.4,0xffffff);scene.remove(s.mesh);scene.remove(s.trail);shells.splice(i,1);}}
   // chained detonations fire a beat after the one that set them off
@@ -505,7 +509,7 @@ function step(dt){
       else guide("Drum aboard. <b>"+(DRUMS_NEEDED-S.drums)+" more</b> and the gate opens.");}}
   for(i=0;i<repairs.length;i++){var rp=repairs[i];if(rp.taken)continue;rp.mesh.position.y=0.9+Math.sin(S.t*2+rp.phase)*0.18;rp.mesh.rotation.x+=dt*0.8;
     if(rp.mesh.position.distanceTo(ship.position)<DRUM_R){rp.taken=true;scene.remove(rp.mesh);addScore(150);sfx.repair();
-      if(S.hull<3){S.hull++;syncHud();guide("<b>Compartment patched.</b> "+S.hull+" of three holding.");}else guide("Repair float aboard — hull was already sound, so that is points only.");}}
+      if(S.hull<5){S.hull++;syncHud();guide("<b>Compartment patched.</b> "+S.hull+" of five holding.");}else guide("Repair float aboard — hull was already sound, so that is points only.");}}
   for(i=0;i<mines.length;i++){var mn=mines[i];if(!mn.live)continue;mn.mesh.position.y=0.7+Math.sin(S.t*1.4+mn.phase)*0.14;mn.mesh.rotation.y+=dt*0.3;
     if(mn.mesh.position.distanceTo(ship.position)<MINE_R){mn.live=false;scene.remove(mn.mesh);boom(mn.mesh.position.x,mn.mesh.position.z,9);hit("Mine on the hull.");if(S.phase!=="run")return;}}
 
@@ -513,20 +517,24 @@ function step(dt){
   var alive=0,smoked=S.t<S.smokeUntil;
   for(i=0;i<craft.length;i++){var f=craft[i];if(f.dead)continue;alive++;
     var dx=ship.position.x-f.mesh.position.x,dz=ship.position.z-f.mesh.position.z,dist=Math.sqrt(dx*dx+dz*dz);
-    f.timer+=dt;if(f.blind>0)f.blind-=dt;
-    if(f.mode==="chase"){f.heading=Math.atan2(dx,dz);f.speed+=(20-f.speed)*dt*1.4;if(f.timer>5.5){f.mode="break";f.timer=0;}}
-    else if(f.mode==="break"){f.heading=Math.atan2(-dx,-dz);f.speed+=(22-f.speed)*dt*1.6;if(f.timer>4.5){f.mode="patrol";f.timer=0;}}
+    f.timer+=dt;if(f.blind>0)f.blind-=dt;if(f.passCool>0)f.passCool-=dt;
+    if(f.mode==="chase"){f.heading=Math.atan2(dx,dz);f.speed+=(18-f.speed)*dt*1.4;
+      // a run is one pass: once they've closed and are opening again, they break off
+      if(dist<7)f.closed=true;
+      if((f.closed&&dist>9)||f.timer>4.5){f.mode="break";f.timer=0;f.closed=false;f.blind=5;}}
+    else if(f.mode==="break"){f.heading=Math.atan2(-dx,-dz);f.speed+=(22-f.speed)*dt*1.6;if(f.timer>6){f.mode="patrol";f.timer=0;}}
     else{f.speed+=(9-f.speed)*dt;if(f.cool<=0){f.heading+=(Math.random()-0.5)*1.4;f.cool=1.6+Math.random()*2;}f.cool-=dt;
       var near=null,nd=1e9,q;for(var a=0;a<mines.length;a++){if(!mines[a].live)continue;q=mines[a].mesh.position.distanceTo(f.mesh.position);if(q<nd){nd=q;near=mines[a];}}
       if(near&&nd<11){var bd=Math.atan2(near.mesh.position.x-f.mesh.position.x,near.mesh.position.z-f.mesh.position.z);var diff=Math.atan2(Math.sin(bd-f.heading),Math.cos(bd-f.heading));f.heading-=(diff>=0?1:-1)*2.2*dt;}
-      if(dist<30&&S.t>9&&f.blind<=0&&!smoked){f.mode="chase";f.timer=0;}}
+      if(dist<26&&S.t>9&&f.blind<=0&&!smoked){f.mode="chase";f.timer=0;f.closed=false;}}
     var cfx=Math.sin(f.heading),cfz=Math.cos(f.heading),cnx=f.mesh.position.x+cfx*f.speed*dt,cnz=f.mesh.position.z+cfz*f.speed*dt;
-    if(landAtWorld(cnx,cnz)){f.heading+=2.2;f.speed*=0.4;}else{f.mesh.position.x=cnx;f.mesh.position.z=cnz;}
+    if(landAtWorld(cnx,cnz)){f.heading+=2.2;f.speed*=0.4;f.vx=0;f.vz=0;}else{f.vx=(cnx-f.mesh.position.x)/dt;f.vz=(cnz-f.mesh.position.z)/dt;f.mesh.position.x=cnx;f.mesh.position.z=cnz;}
     f.mesh.rotation.y=f.heading;f.mesh.rotation.z=-Math.sin(S.t*9+i)*0.05*(f.speed/20);f.mesh.position.y=0.3+Math.sin(S.t*7+i)*0.12;
     if(f.speed>6&&Math.random()<0.5)dropFoam(f.mesh.position.x-cfx*2.2,f.mesh.position.z-cfz*2.2,f.speed/22*0.6);
     for(var b=0;b<mines.length;b++){if(!mines[b].live)continue;if(mines[b].mesh.position.distanceTo(f.mesh.position)<CRAFT_MINE_R){mines[b].live=false;scene.remove(mines[b].mesh);f.dead=true;scene.remove(f.mesh);boom(f.mesh.position.x,f.mesh.position.z,11);S.kills++;addScore(250);guide("<b>One of them ran onto a mine.</b> On an attack run they stop watching the water.");break;}}
     if(f.dead)continue;
-    if(dist<CRAFT_R){hit("Attack craft raked the hull.");boom(f.mesh.position.x,f.mesh.position.z,4);f.mesh.position.x-=cfx*14;f.mesh.position.z-=cfz*14;f.speed=4;f.mode="break";f.timer=0;if(S.phase!=="run")return;}}
+    // contact only counts once per pass; the same boat can't hurt you again for a while
+    if(dist<CRAFT_R&&f.passCool<=0){f.passCool=10;hit("Attack craft raked the hull.");boom(f.mesh.position.x,f.mesh.position.z,4);f.mesh.position.x-=cfx*10;f.mesh.position.z-=cfz*10;f.speed=4;f.mode="break";f.timer=0;f.blind=5;if(S.phase!=="run")return;}}
   S.reinforce+=dt;
   if(S.t>25&&alive<3&&S.reinforce>(S.leg===1?18:14)){S.reinforce=0;var fromCol=S.leg===1?COLS-2:1;var rr=bounds(fromCol);spawnCraftAt(fromCol,rr[0]+Math.floor(Math.random()*(rr[1]-rr[0]+1)));guide("<b>Another craft coming in from the "+(S.leg===1?"east":"west")+".</b>",true);}
 
@@ -560,10 +568,10 @@ function step(dt){
         var wr=bounds(3);for(var w=0;w<2;w++)spawnCraftAt(3+w*2,wr[0]+Math.floor(Math.random()*(wr[1]-wr[0]+1)));
         guide("<b>Turned at the gate.</b> Now bring her home — west, loaded, slower, and they know you are coming. The western gate is lit.");syncHud();}
       else{ship.position.x=EAST_X+1;S.speed=0;guide("<b>The gate is shut.</b> You have "+S.drums+" drums and need "+DRUMS_NEEDED+".");}}
-    if(ship.position.x<cx(0))ship.position.x=cx(0);
+    if(ship.position.x<cx(0)){ship.position.x=cx(0);if(S.speed<-1||ship.rotation.y<0){guide("Wrong way — that is open Gulf behind you. The gate is <b>east</b>; follow the arrow.");}}
   } else {
     if(ship.position.x<WEST_X-1){over(true,"You brought her out of the strait and back into the Gulf.");return;}
-    if(ship.position.x>cx(COLS-1))ship.position.x=cx(COLS-1);
+    if(ship.position.x>cx(COLS-1)){ship.position.x=cx(COLS-1);guide("Open sea out here — nothing to do in it. Home is <b>west</b>; follow the arrow.");}
   }
 }
 
